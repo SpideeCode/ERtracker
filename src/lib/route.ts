@@ -19,7 +19,8 @@ export interface GraceHop {
   discovered: boolean;
 }
 
-export type StepPart = string | { strong: string };
+/** Bold text; `place` makes it clickable to show that spot on the map. */
+export type StepPart = string | { strong: string; place?: { map: string; x: number; y: number } };
 
 export interface RouteStep {
   parts: StepPart[];
@@ -121,7 +122,7 @@ export function planRoute(
         warp: inside,
         path: [inside.pos, target],
         steps: [
-          { parts: ["Voyage rapide vers ", { strong: nameOf(inside.grace) }], note: `Grâce à l'intérieur de ${dungeon}.` },
+          { parts: ["Voyage rapide vers ", { strong: nameOf(inside.grace), place: inside.pos }], note: `Grâce à l'intérieur de ${dungeon}.` },
           {
             parts: ["Avance dans le donjon sur environ ", { strong: formatDistance(inside.distance) }, " jusqu'au boss"],
             note: `Le boss est ${formatClimb(inside.climb)} que la grâce : suis le chemin du donjon.`,
@@ -136,7 +137,7 @@ export function planRoute(
         .sort((a, b) => cost(a) - cost(b))[0];
       const depth = target.height - entrance.height;
       const explore: RouteStep = {
-        parts: ["Entre dans ", { strong: dungeon }, " et progresse jusqu'au boss"],
+        parts: ["Entre dans ", { strong: dungeon, place: entrance }, " et progresse jusqu'au boss"],
         note: `Le boss est ${formatClimb(depth)} que l'entrée, à ${formatDistance(Math.hypot(target.x - entrance.x, target.y - entrance.y))} à vol d'oiseau.`,
       };
       if (!toEntrance) {
@@ -144,7 +145,7 @@ export function planRoute(
           dungeon,
           entrance,
           path: [entrance, target],
-          steps: [{ parts: ["Rejoins à pied l'entrée de ", { strong: dungeon }], note: "Aucune grâce découverte dans les environs." }, explore],
+          steps: [{ parts: ["Rejoins à pied l'entrée de ", { strong: dungeon, place: entrance }], note: "Aucune grâce découverte dans les environs." }, explore],
         };
       }
       return {
@@ -153,9 +154,9 @@ export function planRoute(
         warp: toEntrance,
         path: [toEntrance.pos, entrance, target],
         steps: [
-          { parts: ["Voyage rapide vers ", { strong: nameOf(toEntrance.grace) }] },
+          { parts: ["Voyage rapide vers ", { strong: nameOf(toEntrance.grace), place: toEntrance.pos }] },
           {
-            parts: ["Marche ", { strong: formatDistance(toEntrance.distance) }, " vers le ", { strong: toEntrance.direction }, " jusqu'à l'entrée de ", { strong: dungeon }],
+            parts: ["Marche ", { strong: formatDistance(toEntrance.distance) }, " vers le ", { strong: toEntrance.direction }, " jusqu'à l'entrée de ", { strong: dungeon, place: entrance }],
             note: `L'entrée est ${formatClimb(toEntrance.climb)} que la grâce.`,
           },
           explore,
@@ -174,7 +175,7 @@ export function planRoute(
     };
   }
   const steps: RouteStep[] = [
-    { parts: ["Voyage rapide vers ", { strong: nameOf(best.grace) }] },
+    { parts: ["Voyage rapide vers ", { strong: nameOf(best.grace), place: best.pos }] },
     {
       parts: ["Marche ", { strong: formatDistance(best.distance) }, " vers le ", { strong: best.direction }],
       note: `Le boss est ${formatClimb(best.climb)} que la grâce.`,
@@ -192,7 +193,7 @@ export function planRoute(
     const level = open.find((h) => h !== best && Math.abs(h.climb) <= 25 && h.distance < best.distance * 1.8 + 300);
     if (level) {
       steps.push({
-        parts: ["Ou, plus à niveau : ", { strong: nameOf(level.grace) }, ` (${formatDistance(level.distance)} vers le ${level.direction})`],
+        parts: ["Ou, plus à niveau : ", { strong: nameOf(level.grace), place: level.pos }, ` (${formatDistance(level.distance)} vers le ${level.direction})`],
       });
     }
   }

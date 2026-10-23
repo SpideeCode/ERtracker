@@ -148,9 +148,40 @@
       ui.sheet = id;
       drawRoute(target);
       map.setView(toLatLng(target.x, target.y), 5.5);
+      keepClearOfSheet();
       ui.focus = null;
     });
   });
+
+  // A place picked from a route (grace, dungeon entrance): centre on it and flash it.
+  const highlightLayer = L.layerGroup();
+  $effect(() => {
+    const fly = ui.flyTo;
+    if (!map || !fly) return;
+    untrack(() => {
+      current = fly.map as MapId;
+      centered = true;
+      if (fly.route) {
+        const target = gamedata.positions.get(fly.route);
+        if (target) drawRoute(target);
+      }
+      highlightLayer.clearLayers().addTo(map);
+      const at = toLatLng(fly.x, fly.y);
+      L.marker(at, { icon: L.divIcon({ className: "fly-ring", iconSize: [34, 34] }), interactive: false }).addTo(highlightLayer);
+      L.tooltip({ permanent: true, direction: "top", className: "route-label", offset: [0, -16] })
+        .setLatLng(at)
+        .setContent(fly.label)
+        .addTo(highlightLayer);
+      map.setView(at, 6);
+      keepClearOfSheet();
+      ui.flyTo = null;
+    });
+  });
+
+  /** The boss sheet covers the right of the map: shift so the centre stays visible. */
+  function keepClearOfSheet() {
+    if (ui.sheet) map.panBy([Math.min(210, el.clientWidth * 0.23), 0], { animate: false });
+  }
 
   function drawRoute(target: MarkerPos) {
     routeLayer.clearLayers();
@@ -339,6 +370,18 @@
     background: var(--surface);
     color: var(--text);
     border-color: var(--border-strong);
+  }
+  :global(.fly-ring) {
+    border: 3px solid #f3d27a;
+    border-radius: 50%;
+    box-shadow: 0 0 14px #f3d27a;
+    animation: fly-pulse 1.2s ease-out 3;
+  }
+  @keyframes fly-pulse {
+    from {
+      transform: scale(2.2);
+      opacity: 0;
+    }
   }
   :global(.entrance-icon) {
     background: #5ab0ff;

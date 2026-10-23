@@ -98,7 +98,11 @@
           <li class:warning={step.warning}>
             <span class="num">{step.warning ? "!" : plan.steps.slice(0, i).filter((s) => !s.warning).length + 1}</span>
             <div>
-              {#each step.parts as part}{#if typeof part === "string"}{part}{:else}<strong>{part.strong}</strong>{/if}{/each}
+              {#each step.parts as part}{#if typeof part === "string"}{part}{:else if part.place}<button
+                    class="place"
+                    title="Voir sur la carte"
+                    onclick={() => part.place && ui.showPlace({ ...part.place, label: part.strong, route: id })}
+                  >{part.strong}</button>{:else}<strong>{part.strong}</strong>{/if}{/each}
               {#if step.note}<div class="muted small">{step.note}</div>{/if}
             </div>
           </li>
@@ -116,7 +120,11 @@
             <li class:discovered={g.discovered}>
               <span class="dot" title={g.discovered ? "Découverte" : "Pas encore découverte"}></span>
               <div>
-                {gamedata.name(g.grace)}
+                <button
+                  class="place"
+                  title="Voir sur la carte"
+                  onclick={() => ui.showPlace({ map: g.pos.map, x: g.pos.x, y: g.pos.y, label: gamedata.name(g.grace), route: id })}
+                >{gamedata.name(g.grace)}</button>
                 <div class="muted small">{formatDistance(g.distance)} · {g.direction} · {formatClimb(g.climb)}</div>
               </div>
             </li>
@@ -276,6 +284,26 @@
     display: flex;
     gap: 10px;
     align-items: flex-start;
+  }
+  .place {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    font-weight: 700;
+    color: var(--gold);
+    cursor: pointer;
+    text-align: left;
+    text-decoration: underline dotted var(--gold-dim);
+    text-underline-offset: 3px;
+  }
+  .place:hover {
+    color: #f3d27a;
+    text-decoration-style: solid;
+  }
+  .graces .place {
+    font-weight: 400;
+    color: inherit;
   }
   .where {
     margin: 0 0 10px;
