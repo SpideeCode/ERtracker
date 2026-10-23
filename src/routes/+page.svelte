@@ -7,7 +7,10 @@
   import Quests from "$lib/components/Quests.svelte";
   import MapView from "$lib/components/MapView.svelte";
   import BossList from "$lib/components/BossList.svelte";
-  import BossSheet from "$lib/components/BossSheet.svelte";
+  import Sheet from "$lib/components/Sheet.svelte";
+  import ItemList from "$lib/components/ItemList.svelte";
+  import GlobalSearch from "$lib/components/GlobalSearch.svelte";
+  import { gamedata } from "$lib/gamedata.svelte";
   import { mapdata } from "$lib/mapdata.svelte";
   import { ui } from "$lib/ui.svelte";
 
@@ -36,6 +39,10 @@
         return [c.id, `${entries.filter((e) => tracker.completed.has(e.id)).length}/${entries.length}`];
       }),
     ),
+  );
+
+  const itemCount = $derived(
+    `${[...gamedata.items.keys()].filter((id) => tracker.completed.has(id)).length}/${gamedata.items.size}`,
   );
 
   function folderLabel(path: string) {
@@ -75,6 +82,8 @@
       </select>
     {/if}
 
+    <GlobalSearch />
+
     {#if mapdata.running && mapdata.status?.manifest}
       <div class="sync" title={mapdata.step()}>
         Mise à jour des données du jeu… {mapdata.percent} %
@@ -108,6 +117,10 @@
         <span class="count">{counts[c.id]}</span>
       </button>
     {/each}
+    <button class:active={view.kind === "items"} onclick={() => (ui.view = { kind: "items" })}>
+      <span>Objets</span>
+      {#if gamedata.items.size}<span class="count">{itemCount}</span>{/if}
+    </button>
     <button class:active={view.kind === "quests"} onclick={() => (ui.view = { kind: "quests" })}>
       <span>Quêtes PNJ</span>
     </button>
@@ -132,6 +145,8 @@
         {/key}
       {:else if view.kind === "bosses"}
         <BossList />
+      {:else if view.kind === "items"}
+        <ItemList />
       {:else if view.kind === "quests"}
         <Quests />
       {:else if view.kind === "map"}
@@ -142,7 +157,7 @@
     {#if ui.sheet}
       <div class="drawer">
         {#key ui.sheet}
-          <BossSheet id={ui.sheet} />
+          <Sheet id={ui.sheet} />
         {/key}
       </div>
     {/if}

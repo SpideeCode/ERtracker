@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { gamedata } from "./gamedata.svelte";
+import { tracker } from "./tracker.svelte";
 import type { MapProgress, MapStatus } from "./types";
 
 class MapData {
@@ -48,7 +49,7 @@ class MapData {
     if (!p.finished) return;
     this.running = false;
     if (p.error) this.error = p.error;
-    else this.refresh();
+    else this.refresh().then(() => tracker.reload());
   }
 
   step(): string {

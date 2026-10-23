@@ -44,7 +44,7 @@ const ABSORPTION_OFFSETS: [usize; 8] = [0x1a4, 0x1a8, 0x1ac, 0x1b0, 0x1b4, 0x1b8
 const RESIST_OFFSETS: [usize; 7] = [0x108, 0x10a, 0x10c, 0x10e, 0x1e0, 0x126, 0x128];
 
 /// "m60_42_36_01" -> tile position in the 256 m grid; larger tiers cover 2^tier cells.
-fn tile_pos(map: &str, local: [f32; 3]) -> Option<TilePos> {
+pub fn tile_pos(map: &str, local: [f32; 3]) -> Option<TilePos> {
     let n: Vec<u32> = map.trim_start_matches('m').split('_').map(|p| p.parse().ok()).collect::<Option<_>>()?;
     let [area, gx, gz, last] = n.as_slice() else { return None };
     let (area, gx, gz, last) = (*area as u8, *gx as u8, *gz as u8, *last);
@@ -68,6 +68,8 @@ fn tile_pos(map: &str, local: [f32; 3]) -> Option<TilePos> {
 pub struct Extracted {
     pub bosses: Vec<Boss>,
     pub placements: Vec<BossPlacement>,
+    /// Every treasure event, as (map name, treasure): read in the same pass over the maps.
+    pub treasures: Vec<(String, msb::Treasure)>,
 }
 
 pub fn extract(
@@ -92,6 +94,7 @@ pub fn extract(
     // MSB enemies whose entity id is a defeat flag. The first map found wins
     // (base maps are listed before their _99 variants).
     let mut found: HashMap<u32, (String, i32, [f32; 3])> = HashMap::new();
+    let mut treasures = Vec::new();
     let archives: Vec<(Archive, Vec<(String, String)>)> = ["Data2", "DLC"]
         .iter()
         .map(|name| {
@@ -105,6 +108,7 @@ pub fn extract(
     for (archive, paths) in &archives {
         for (map, path) in paths {
             let raw = dcx::decompress(&archive.read(path)?)?;
+            treasures.extend(msb::treasures(&raw)?.into_iter().map(|t| (map.clone(), t)));
             for e in msb::enemies(&raw)? {
                 if flags.contains(&e.entity_id) && !found.contains_key(&e.entity_id) {
                     found.insert(e.entity_id, (map.clone(), e.npc_param, e.pos));
@@ -163,7 +167,7 @@ pub fn extract(
             .filter(|a| !placed.contains(&a.flag))
             .map(|a| BossPlacement { flag: a.flag, block: a.pos.block(), pos: a.pos }),
     );
-    Ok(Extracted { bosses, placements })
+    Ok(Extracted { bosses, placements, treasures })
 }
 
 /// Lower-cased English text -> French text, for tables sharing ids.

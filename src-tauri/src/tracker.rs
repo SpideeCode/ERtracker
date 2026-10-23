@@ -99,7 +99,12 @@ impl Tracker {
             return Ok(None);
         };
 
-        let completed = progress::completed(&save, character);
+        let mut completed = progress::completed(&save, character);
+        for &flag in maps::item_flags().iter() {
+            if save.flag(character, flag) == Some(true) {
+                completed.insert(format!("item:{flag}"));
+            }
+        }
         let diff = match &self.last {
             Some((p, s, before)) if *p == path && *s == character.slot => progress::diff(before, &completed),
             _ => progress::diff(&completed, &completed),

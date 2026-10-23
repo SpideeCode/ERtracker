@@ -6,6 +6,7 @@ pub mod binder;
 pub mod bosses;
 pub mod dcx;
 pub mod fmg;
+pub mod items;
 pub mod msb;
 pub mod oodle;
 pub mod param;

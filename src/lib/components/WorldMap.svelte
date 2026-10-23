@@ -6,6 +6,7 @@
   import { assetBase, gamedata } from "$lib/gamedata.svelte";
   import { DUNGEON_ICONS, planRoute } from "$lib/route";
   import { ui } from "$lib/ui.svelte";
+  import { ITEM_CATEGORIES, categoryById, pickupCategory, pickupTitle } from "$lib/items";
   import type { Entry, MapId, MapInfo, MarkerPos } from "$lib/types";
 
   let { maps }: { maps: MapInfo[] } = $props();
@@ -27,6 +28,8 @@
   let showBosses = $state(true);
   let missingOnly = $state(false);
   let showDungeons = $state(true);
+  /** "important", "none", "all" or an item category id. */
+  let itemFilter = $state("important");
   let shown = $state(0);
   let player: L.Marker | null = null;
   let centered = false;
@@ -94,6 +97,28 @@
     const selected = ui.sheet;
     markerLayer.clearLayers();
     let count = 0;
+    // Items first, so graces and bosses are drawn on top.
+    if (itemFilter !== "none") {
+      for (const [id, p] of gamedata.items) {
+        if (p.map !== current) continue;
+        const cat = pickupCategory(p);
+        if (itemFilter === "important" ? !categoryById.get(cat)?.important : itemFilter !== "all" && itemFilter !== cat) continue;
+        const isDone = done.has(id);
+        if (missingOnly && isDone) continue;
+        const color = categoryById.get(cat)?.color ?? "#ccc";
+        L.circleMarker(toLatLng(p.x, p.y), {
+          radius: id === selected ? 7 : 4,
+          color: id === selected ? "#5ab0ff" : "#14110b",
+          weight: id === selected ? 3 : 1,
+          fillColor: isDone ? DONE_COLOR : color,
+          fillOpacity: isDone ? 0.45 : 0.95,
+        })
+          .bindTooltip(pickupTitle(p), { direction: "top", offset: [0, -4] })
+          .on("click", () => (ui.sheet = id))
+          .addTo(markerLayer);
+        count++;
+      }
+    }
     for (const { entry, pos } of markers) {
       if (pos.map !== current) continue;
       if ((entry.category === "grace" && !showGraces) || (entry.category === "boss" && !showBosses)) continue;
@@ -102,8 +127,7 @@
       const legendary = gamedata.bosses.get(entry.id)?.legendary ?? false;
       const circle = L.circleMarker(toLatLng(pos.x, pos.y), style(entry, isDone, legendary, entry.id === selected))
         .bindTooltip(gamedata.name(entry), { direction: "top", offset: [0, -6] });
-      if (entry.category === "boss") circle.on("click", () => (ui.sheet = entry.id));
-      else circle.bindPopup(popup(entry, isDone));
+      circle.on("click", () => (ui.sheet = entry.id));
       circle.addTo(markerLayer);
       count++;
     }
@@ -222,17 +246,6 @@
     };
   }
 
-  function popup(entry: Entry, done: boolean) {
-    const div = document.createElement("div");
-    const title = document.createElement("strong");
-    title.textContent = gamedata.name(entry);
-    const meta = document.createElement("div");
-    const region = gamedata.region(entry);
-    meta.textContent = `${region ? region + " · " : ""}${done ? "Découverte ✓" : "Pas encore découverte"}`;
-    div.append(title, meta);
-    return div;
-  }
-
   function centerOnPlayer() {
     const pos = tracker.snapshot?.map_position;
     if (!pos) return;
@@ -256,8 +269,21 @@
       <label><input type="checkbox" bind:checked={showDungeons} /> <span class="dot dungeon"></span> Donjons</label>
       <label><input type="checkbox" bind:checked={missingOnly} /> Manquants seulement</label>
     </div>
+    <div class="filters">
+      <label>
+        Objets
+        <select bind:value={itemFilter}>
+          <option value="important">Essentiels</option>
+          <option value="none">Aucun</option>
+          <option value="all">Tous</option>
+          {#each ITEM_CATEGORIES as c (c.id)}
+            <option value={c.id}>{c.name}</option>
+          {/each}
+        </select>
+      </label>
+    </div>
     <div class="foot">
-      <span class="muted">{shown} repères affichés · clique un boss pour sa fiche</span>
+      <span class="muted">{shown} repères · clique un repère pour sa fiche</span>
       {#if tracker.snapshot?.map_position}
         <button class="link" onclick={centerOnPlayer}>◎ Ma position</button>
       {/if}

@@ -88,6 +88,7 @@ pub fn start_extraction(app: &AppHandle, game_dir: PathBuf) -> Result<(), String
             std::fs::rename(&staging, &target).map_err(|e| e.to_string())
         });
         *PROJECTOR.lock().unwrap() = None;
+        *ITEM_FLAGS.lock().unwrap() = None;
         *RUNNING.lock().unwrap() = false;
         emit(ProgressEvent { step: "done".into(), done: 1, total: 1, error: result.err(), finished: true });
     });
@@ -120,6 +121,31 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
 }
 
 static PROJECTOR: Mutex<Option<std::sync::Arc<Projector>>> = Mutex::new(None);
+static ITEM_FLAGS: Mutex<Option<std::sync::Arc<Vec<u32>>>> = Mutex::new(None);
+
+/// Pickup flags from the extracted items.json (empty until maps are prepared).
+pub fn item_flags() -> std::sync::Arc<Vec<u32>> {
+    #[derive(serde::Deserialize)]
+    struct Pickup {
+        flag: u32,
+    }
+    let mut cached = ITEM_FLAGS.lock().unwrap();
+    if let Some(flags) = cached.as_ref() {
+        return flags.clone();
+    }
+    let flags: Vec<u32> = DIR
+        .get()
+        .and_then(|d| std::fs::read(d.join("items.json")).ok())
+        .and_then(|data| serde_json::from_slice::<Vec<Pickup>>(&data).ok())
+        .map(|p| p.into_iter().map(|p| p.flag).collect())
+        .unwrap_or_default();
+    let flags = std::sync::Arc::new(flags);
+    // Only cache once extracted data exists, so a later extraction is picked up.
+    if !flags.is_empty() {
+        *cached = Some(flags.clone());
+    }
+    flags
+}
 static DIR: OnceLock<PathBuf> = OnceLock::new();
 
 pub fn init(app: &AppHandle) {

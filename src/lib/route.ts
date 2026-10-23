@@ -72,6 +72,10 @@ function hop(grace: Entry, pos: MarkerPos, target: { x: number; y: number; heigh
   return { grace, pos, distance: Math.hypot(dx, dy), direction: heading(dx, dy), climb: target.height - pos.height, discovered };
 }
 
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+/** "le boss" -> "du boss", "la grâce" -> "de la grâce", "l'objet" -> "de l'objet". */
+const of = (goal: string) => (goal.startsWith("le ") ? "du " + goal.slice(3) : "de " + goal);
+
 const cost = (h: GraceHop) => h.distance + CLIMB_WEIGHT * Math.abs(h.climb);
 
 /**
@@ -93,7 +97,7 @@ function gateSteps(gate: GraceHop, from: GraceHop | undefined, goal: string, nam
       warning: true,
       parts: ["Passe d'abord par ", { strong: nameOf(gate.grace), place: gate.pos }, " (pas encore découverte)"],
       note:
-        "Elle est bien plus proche du boss que tes grâces : c'est souvent le vrai chemin, par une zone à débloquer ou un accès particulier" +
+        `Elle est bien plus proche ${of(goal)} que tes grâces : c'est souvent le vrai chemin, par une zone à débloquer ou un accès particulier` +
         (leg ? ` (elle est à ${formatDistance(leg.distance)} vers le ${leg.direction} de ta grâce, ${formatClimb(-leg.climb)}).` : "."),
     },
     {
@@ -130,14 +134,23 @@ function findEntrance(target: MarkerPos, places: Place[], graceNamesInBlock: Set
   return candidate && Math.hypot(candidate.x - target.x, candidate.y - target.y) < 600 ? candidate : undefined;
 }
 
+export interface RouteOptions {
+  /** What is being reached, for the wording: "le boss", "la grâce", "l'objet". */
+  goal?: string;
+  /** Entry id of the target itself when it is a grace (never route through it). */
+  exclude?: string;
+}
+
 export function planRoute(
   target: MarkerPos,
   positions: Map<string, MarkerPos>,
   completed: Set<string>,
   places: Place[],
   nameOf: (e: Entry) => string,
+  { goal = "le boss", exclude }: RouteOptions = {},
 ): RoutePlan {
-  const hops = allHops(target, positions, completed);
+  const hops = allHops(target, positions, completed).filter((h) => h.grace.id !== exclude);
+  const Goal = capitalize(goal);
   const placeName = (p: Place) => p.name.fr ?? p.name.en;
 
   if (!isOpen(target.block)) {
@@ -155,8 +168,8 @@ export function planRoute(
         steps: [
           { parts: ["Voyage rapide vers ", { strong: nameOf(inside.grace), place: inside.pos }], note: `Grâce à l'intérieur de ${dungeon}.` },
           {
-            parts: ["Avance dans le donjon sur environ ", { strong: formatDistance(inside.distance) }, " jusqu'au boss"],
-            note: `Le boss est ${formatClimb(inside.climb)} que la grâce : suis le chemin du donjon.`,
+            parts: ["Avance dans le donjon sur environ ", { strong: formatDistance(inside.distance) }, ` jusqu'à ${goal}`],
+            note: `${Goal} est ${formatClimb(inside.climb)} que la grâce : suis le chemin du donjon.`,
           },
         ],
       };
@@ -168,8 +181,8 @@ export function planRoute(
         .sort((a, b) => cost(a) - cost(b))[0];
       const depth = target.height - entrance.height;
       const explore: RouteStep = {
-        parts: ["Entre dans ", { strong: dungeon, place: entrance }, " et progresse jusqu'au boss"],
-        note: `Le boss est ${formatClimb(depth)} que l'entrée, à ${formatDistance(Math.hypot(target.x - entrance.x, target.y - entrance.y))} à vol d'oiseau.`,
+        parts: ["Entre dans ", { strong: dungeon, place: entrance }, ` et progresse jusqu'à ${goal}`],
+        note: `${Goal} est ${formatClimb(depth)} que l'entrée, à ${formatDistance(Math.hypot(target.x - entrance.x, target.y - entrance.y))} à vol d'oiseau.`,
       };
       const entranceHops = allHops(entrance, positions, completed).filter((h) => isOpen(h.pos.block));
       const gate = findGate(entranceHops, toEntrance, () => true);
@@ -223,7 +236,7 @@ export function planRoute(
       path: best ? [best.pos, gate.pos, target] : [gate.pos, target],
       steps: [
         ...(best ? [{ parts: ["Voyage rapide vers ", { strong: nameOf(best.grace), place: best.pos }] }] : []),
-        ...gateSteps(gate, best, "le boss", nameOf),
+        ...gateSteps(gate, best, goal, nameOf),
       ],
     };
   }
@@ -237,7 +250,7 @@ export function planRoute(
     { parts: ["Voyage rapide vers ", { strong: nameOf(best.grace), place: best.pos }] },
     {
       parts: ["Marche ", { strong: formatDistance(best.distance) }, " vers le ", { strong: best.direction }],
-      note: `Le boss est ${formatClimb(best.climb)} que la grâce.`,
+      note: `${Goal} est ${formatClimb(best.climb)} que la grâce.`,
     },
   ];
   if (Math.abs(best.climb) > BIG_CLIMB) {

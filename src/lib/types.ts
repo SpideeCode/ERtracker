@@ -108,9 +108,27 @@ export interface BossSheet {
 /** One entry of markers.json, written by the extraction. */
 export interface MarkerPos extends MapPos {
   flag: number;
-  kind: "grace" | "boss";
+  kind: "grace" | "boss" | "item";
   /** Map block in the game's frame, e.g. "m30_04_00" (a catacomb) or "m60_42_36". */
   block: string;
+}
+
+/** One item of a pickup (items.json). */
+export interface LotItem {
+  /** 1 goods, 2 weapon, 3 armour, 4 talisman, 5 ash of war */
+  cat: number;
+  id: number;
+  name: { en: string; fr: string | null };
+  count: number;
+  goods_type: number | null;
+}
+
+/** A place where items are picked up once (items.json). */
+export interface ItemPickup extends MapPos {
+  flag: number;
+  lot: number;
+  block: string;
+  items: LotItem[];
 }
 
 /** Named point of the in-game map (places.json): dungeon entrances and landmarks. */

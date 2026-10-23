@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import rawDb from "../../data/db.json";
 import type { Db, Entry, SaveLocation, Snapshot, Update } from "./types";
 import { gamedata } from "./gamedata.svelte";
+import { pickupCategory, pickupTitle } from "./items";
 
 export const db = rawDb as Db;
 export const entriesById = new Map<string, Entry>(db.entries.map((e) => [e.id, e]));
@@ -26,6 +27,8 @@ export interface Toast {
 export function describe(id: string): { label: string; category: string } {
   const entry = entriesById.get(id);
   if (entry) return { label: gamedata.name(entry), category: entry.category };
+  const pickup = gamedata.items.get(id);
+  if (pickup) return { label: pickupTitle(pickup), category: `item:${pickupCategory(pickup)}` };
   const [questId, step] = id.split("#");
   const quest = questsById.get(questId);
   if (quest) return { label: `${quest.npc} : étape ${Number(step) + 1}`, category: "quest" };
@@ -47,6 +50,11 @@ class Tracker {
     await listen<Update>("tracker://update", (e) => this.apply(e.payload, true));
     this.saves = await invoke<SaveLocation[]>("list_saves");
     await this.run(invoke<Update | null>("load_state"));
+  }
+
+  /** Re-reads the save, e.g. once new game data (item flags) has been extracted. */
+  reload() {
+    return this.run(invoke<Update | null>("load_state"));
   }
 
   select(savePath: string | null, slot: number | null) {
@@ -73,7 +81,9 @@ class Tracker {
       ...update.diff.lost.map((id) => ({ at, id, gained: false, ...describe(id) })),
     ];
     this.log = [...items, ...this.log].slice(0, 200);
-    for (const item of items.filter((i) => i.gained && i.category !== "quest")) {
+    // No toast for quest steps or everyday pickups (materials, runes, consumables).
+    const quiet = ["quest", "item:material", "item:rune", "item:consumable", "item:upgrade"];
+    for (const item of items.filter((i) => i.gained && !quiet.includes(i.category))) {
       this.toast(item.label, item.category);
     }
   }

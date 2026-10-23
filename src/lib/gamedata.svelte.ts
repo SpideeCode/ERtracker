@@ -1,7 +1,7 @@
 // Data extracted from the player's game install (see src-tauri/src/extract):
 // marker positions, boss sheets and French names. Empty until maps are prepared.
 import { convertFileSrc } from "@tauri-apps/api/core";
-import type { BossSheet, Entry, MarkerPos, Place } from "./types";
+import type { BossSheet, Entry, ItemPickup, MarkerPos, Place } from "./types";
 
 // http://ertiles.localhost/ on Windows, ertiles://localhost/ elsewhere.
 export const assetBase = convertFileSrc("", "ertiles");
@@ -22,17 +22,23 @@ class GameData {
   names = $state<Record<string, string>>({});
   regions = $state<Record<string, string>>({});
   places = $state<Place[]>([]);
+  /** "item:<flag>" -> pickup */
+  items = $state(new Map<string, ItemPickup>());
   loaded = $state(false);
 
   async load() {
-    const [markers, bosses, translations, places] = await Promise.all([
+    const [markers, bosses, translations, places, items] = await Promise.all([
       fetchJson<MarkerPos[]>("markers.json"),
       fetchJson<BossSheet[]>("bosses.json"),
       fetchJson<{ names: Record<string, string>; regions: Record<string, string> }>("translations.json"),
       fetchJson<Place[]>("places.json"),
+      fetchJson<ItemPickup[]>("items.json"),
     ]);
+    this.items = new Map((items ?? []).map((p) => [`item:${p.flag}`, p]));
     this.places = places ?? [];
-    this.positions = new Map((markers ?? []).map((m) => [`${m.kind}:${m.flag}`, m]));
+    const positions = new Map((markers ?? []).map((m) => [`${m.kind}:${m.flag}`, m]));
+    for (const [id, p] of this.items) positions.set(id, { ...p, kind: "item" });
+    this.positions = positions;
     this.bosses = new Map((bosses ?? []).map((b) => [`boss:${b.flag}`, b]));
     this.names = translations?.names ?? {};
     this.regions = translations?.regions ?? {};

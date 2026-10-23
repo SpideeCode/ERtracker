@@ -3,6 +3,7 @@ export type View =
   | { kind: "map" }
   | { kind: "category"; id: string }
   | { kind: "bosses" }
+  | { kind: "items" }
   | { kind: "quests" };
 
 /** A place to centre the map on, e.g. a grace named in a route. */
