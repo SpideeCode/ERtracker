@@ -1,0 +1,30 @@
+{
+  "_comment": "Hand-maintained boss facts not readable from game params. Keys are boss names as in db.json; remembrance names are English item names, translated at extraction time from the game's own text.",
+  "legendary": {
+    "Godrick the Grafted": "Remembrance of the Grafted",
+    "Rennala, Queen of the Full Moon": "Remembrance of the Full Moon Queen",
+    "Starscourge Radahn": "Remembrance of the Starscourge",
+    "Morgott, the Omen King": "Remembrance of the Omen King",
+    "Rykard, Lord of Blasphemy": "Remembrance of the Blasphemous",
+    "Mohg, Lord of Blood": "Remembrance of the Blood Lord",
+    "Malenia, Blade of Miquella": "Remembrance of the Rot Goddess",
+    "Maliketh, the Black Blade": "Remembrance of the Black Blade",
+    "Astel, Naturalborn of the Void": "Remembrance of the Naturalborn",
+    "Lichdragon Fortissax": "Remembrance of the Lichdragon",
+    "Regal Ancestor Spirit": "Remembrance of the Regal Ancestor",
+    "Dragonlord Placidusax": "Remembrance of the Dragonlord",
+    "Hoarah Loux, Warrior": "Remembrance of Hoarah Loux",
+    "Elden Beast": "Elden Remembrance",
+    "Fire Giant": "Remembrance of the Fire Giant",
+    "Divine Beast Dancing Lion (Gravesite Plain)": "Remembrance of the Dancing Lion",
+    "Rellana, Twin Moon Knight": "Remembrance of the Twin Moon Knight",
+    "Messmer the Impaler": "Remembrance of the Impaler",
+    "Romina, Saint of the Bud": "Remembrance of the Saint of the Bud",
+    "Midra, Lord of Frenzied Flame": "Remembrance of the Lord of Frenzied Flame",
+    "Commander Gaius": "Remembrance of the Wild Boar Rider",
+    "Putrescent Knight": "Remembrance of Putrescence",
+    "Metyr, Mother of Fingers": "Remembrance of the Mother of Fingers",
+    "Scadutree Avatar": "Remembrance of the Shadow Sunflower",
+    "Promised Consort Radahn": "Remembrance of a God and a Lord"
+  }
+}

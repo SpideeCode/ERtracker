@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import rawDb from "../../data/db.json";
 import type { Db, Entry, SaveLocation, Snapshot, Update } from "./types";
+import { gamedata } from "./gamedata.svelte";
 
 export const db = rawDb as Db;
 export const entriesById = new Map<string, Entry>(db.entries.map((e) => [e.id, e]));
@@ -24,7 +25,7 @@ export interface Toast {
 /** Human-readable label for a completed id ("boss:10000800" or "quest:ranni#3"). */
 export function describe(id: string): { label: string; category: string } {
   const entry = entriesById.get(id);
-  if (entry) return { label: entry.name, category: entry.category };
+  if (entry) return { label: gamedata.name(entry), category: entry.category };
   const [questId, step] = id.split("#");
   const quest = questsById.get(questId);
   if (quest) return { label: `${quest.npc} : étape ${Number(step) + 1}`, category: "quest" };

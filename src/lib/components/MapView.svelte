@@ -2,6 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
   import type { MapStatus } from "$lib/types";
+  import { gamedata } from "$lib/gamedata.svelte";
   import MapSetup from "./MapSetup.svelte";
   import WorldMap from "./WorldMap.svelte";
 
@@ -11,6 +12,7 @@
   async function refresh() {
     status = await invoke<MapStatus>("map_status", { gameDir: null });
     updating = false;
+    if (status.manifest) await gamedata.load();
   }
 
   onMount(refresh);
@@ -23,7 +25,7 @@
 {:else}
   {#if status.outdated}
     <div class="notice">
-      Le jeu a été mis à jour : les cartes peuvent être incomplètes.
+      Nouvelle version du jeu ou de l'app : mets à jour les cartes pour avoir toutes les données.
       <button onclick={() => (updating = true)}>Mettre à jour</button>
     </div>
   {/if}

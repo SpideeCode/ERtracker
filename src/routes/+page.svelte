@@ -6,14 +6,17 @@
   import CategoryList from "$lib/components/CategoryList.svelte";
   import Quests from "$lib/components/Quests.svelte";
   import MapView from "$lib/components/MapView.svelte";
+  import BossList from "$lib/components/BossList.svelte";
+  import BossSheet from "$lib/components/BossSheet.svelte";
+  import { gamedata } from "$lib/gamedata.svelte";
+  import { ui } from "$lib/ui.svelte";
 
-  type View = { kind: "dashboard" } | { kind: "category"; id: string } | { kind: "quests" } | { kind: "map" };
-
-  let view = $state<View>({ kind: "dashboard" });
   let now = $state(Date.now());
+  const view = $derived(ui.view);
 
   onMount(() => {
     tracker.start();
+    gamedata.load();
     const timer = setInterval(() => (now = Date.now()), 1000);
     return () => clearInterval(timer);
   });
@@ -26,10 +29,10 @@
     return `${parts.at(-2)} · ${parts.at(-1)}`;
   }
 
-  const open = (id: string) => (view = { kind: "category", id });
+  const open = (id: string) => (ui.view = id === "boss" ? { kind: "bosses" } : { kind: "category", id });
 </script>
 
-<div class="app">
+<div class="app" class:with-sheet={ui.sheet !== null}>
   <header>
     <div class="brand">ERtracker</div>
 
@@ -68,15 +71,18 @@
   </header>
 
   <nav>
-    <button class:active={view.kind === "dashboard"} onclick={() => (view = { kind: "dashboard" })}>Tableau de bord</button>
-    <button class:active={view.kind === "map"} onclick={() => (view = { kind: "map" })}>Carte</button>
+    <button class:active={view.kind === "dashboard"} onclick={() => (ui.view = { kind: "dashboard" })}>Tableau de bord</button>
+    <button class:active={view.kind === "map"} onclick={() => (ui.view = { kind: "map" })}>Carte</button>
     <div class="sep"></div>
     {#each db.categories as c (c.id)}
-      <button class:active={view.kind === "category" && view.id === c.id} onclick={() => open(c.id)}>
+      <button
+        class:active={(view.kind === "category" && view.id === c.id) || (view.kind === "bosses" && c.id === "boss")}
+        onclick={() => open(c.id)}
+      >
         {c.name.fr}
       </button>
     {/each}
-    <button class:active={view.kind === "quests"} onclick={() => (view = { kind: "quests" })}>Quêtes PNJ</button>
+    <button class:active={view.kind === "quests"} onclick={() => (ui.view = { kind: "quests" })}>Quêtes PNJ</button>
   </nav>
 
   <main class:full={view.kind === "map"}>
@@ -95,12 +101,22 @@
       {#key view.id}
         <CategoryList category={view.id} />
       {/key}
+    {:else if view.kind === "bosses"}
+      <BossList />
     {:else if view.kind === "quests"}
       <Quests />
     {:else if view.kind === "map"}
       <MapView />
     {/if}
   </main>
+
+  {#if ui.sheet}
+    <div class="side">
+      {#key ui.sheet}
+        <BossSheet id={ui.sheet} />
+      {/key}
+    </div>
+  {/if}
 
   <div class="toasts">
     {#each tracker.toasts as t (t.key)}
@@ -169,6 +185,13 @@
     grid-template-columns: 200px 1fr;
     grid-template-rows: auto 1fr;
     height: 100vh;
+  }
+  .app.with-sheet {
+    grid-template-columns: 200px 1fr 380px;
+  }
+  .side {
+    grid-row: 2;
+    min-height: 0;
   }
   header {
     grid-column: 1 / -1;

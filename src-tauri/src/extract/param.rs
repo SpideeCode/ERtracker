@@ -55,6 +55,10 @@ impl Row<'_> {
         self.data[at]
     }
 
+    pub fn u16(&self, at: usize) -> u16 {
+        u16::from_le_bytes(self.data[at..at + 2].try_into().unwrap())
+    }
+
     pub fn u32(&self, at: usize) -> u32 {
         u32::from_le_bytes(self.data[at..at + 4].try_into().unwrap())
     }

@@ -91,6 +91,20 @@ export interface MapProgress {
   finished: boolean;
 }
 
+/** One entry of bosses.json, written by the extraction. */
+export interface BossSheet {
+  flag: number;
+  npc_param: number | null;
+  msb: string | null;
+  runes: number | null;
+  /** % absorbed: standard, slash, strike, pierce, magic, fire, lightning, holy */
+  absorption: number[] | null;
+  /** build-up thresholds (999 = immune): poison, rot, bleed, death, frost, sleep, madness */
+  resistance: number[] | null;
+  legendary: boolean;
+  remembrance: { en: string; fr: string | null } | null;
+}
+
 /** One entry of markers.json, written by the extraction. */
 export interface MarkerPos extends MapPos {
   flag: number;

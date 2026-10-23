@@ -14,6 +14,7 @@ pub struct Entry {
     pub id: String,
     pub category: String,
     pub name: String,
+    pub region: Option<String>,
     pub flag: u32,
 }
 

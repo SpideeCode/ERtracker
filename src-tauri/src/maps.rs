@@ -105,14 +105,15 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     let Ok(body) = std::fs::read(dir(app).join(rel)) else {
         return not_found();
     };
-    let mime = match rel.extension().and_then(|e| e.to_str()) {
-        Some("jpg") => "image/jpeg",
-        Some("json") => "application/json",
-        _ => "application/octet-stream",
+    let (mime, cache) = match rel.extension().and_then(|e| e.to_str()) {
+        Some("jpg") => ("image/jpeg", "max-age=86400"),
+        // Rewritten by every extraction.
+        Some("json") => ("application/json", "no-cache"),
+        _ => ("application/octet-stream", "no-cache"),
     };
     Response::builder()
         .header("Content-Type", mime)
-        .header("Cache-Control", "max-age=86400")
+        .header("Cache-Control", cache)
         .header("Access-Control-Allow-Origin", "*")
         .body(body)
         .unwrap()

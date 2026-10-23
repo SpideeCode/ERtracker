@@ -1,6 +1,7 @@
 <script lang="ts">
   import { db, tracker } from "$lib/tracker.svelte";
   import { categoryName } from "$lib/labels";
+  import { gamedata } from "$lib/gamedata.svelte";
 
   let { category }: { category: string } = $props();
 
@@ -16,8 +17,9 @@
     for (const e of entries) {
       const done = tracker.completed.has(e.id);
       if ((filter === "todo" && done) || (filter === "done" && !done)) continue;
-      if (q && !e.name.toLowerCase().includes(q) && !(e.region ?? "").toLowerCase().includes(q)) continue;
-      const region = e.region ?? "Autre";
+      const name = gamedata.name(e);
+      const region = gamedata.region(e) ?? "Autre";
+      if (q && !name.toLowerCase().includes(q) && !e.name.toLowerCase().includes(q) && !region.toLowerCase().includes(q)) continue;
       byRegion.set(region, [...(byRegion.get(region) ?? []), e]);
     }
     return [...byRegion.entries()].sort(([a], [b]) => a.localeCompare(b));
@@ -46,7 +48,7 @@
         {@const done = tracker.completed.has(e.id)}
         <li class:done>
           <span class="check">{done ? "✓" : ""}</span>
-          <span>{e.name}</span>
+          <span>{gamedata.name(e)}</span>
         </li>
       {/each}
     </ul>

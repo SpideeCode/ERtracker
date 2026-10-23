@@ -4,13 +4,15 @@
 //! Output layout:
 //!   tiles/{M00,M01,M10,M11}/{z}/{x}/{y}.jpg   Leaflet pyramid, z = MAX_ZOOM is level 0
 //!   markers.json                              positions keyed by event flag
+//!   bosses.json                               boss sheets (resistances, runes, remembrances)
+//!   translations.json                         French names for the progress database
 //!   legacy_conv.param                         raw WorldMapLegacyConvParam
 //!   manifest.json                             what was extracted, from which game build
 
 use super::archive::Archive;
 use super::tiles::{TileSet, TILE};
 use super::world::{MapId, MapPos, Projector};
-use super::{oodle, regulation, ExtractError, Result};
+use super::{bosses, fmg, oodle, regulation, ExtractError, Result};
 use image::{imageops, Rgb, RgbImage, RgbaImage};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -56,7 +58,7 @@ struct Marker {
     pos: MapPos,
 }
 
-pub const FORMAT: u32 = 1;
+pub const FORMAT: u32 = 2;
 pub const LEGACY_CONV_FILE: &str = "legacy_conv.param";
 
 pub fn game_build(game: &Path) -> String {
@@ -74,26 +76,34 @@ pub fn build(game_root: &Path, out: &Path, mut progress: impl FnMut(Progress)) -
     oodle::init(&game)?;
     std::fs::create_dir_all(out)?;
 
-    progress(Progress { step: "markers", done: 0, total: 1 });
+    progress(Progress { step: "texts", done: 0, total: 1 });
     let params = regulation::load(&game)?;
     let get = |name: &str| params.get(name).ok_or_else(|| ExtractError::new(format!("{name} missing from regulation.bin")));
+    let data0 = Archive::open(&game, "Data0")?;
+    let en = fmg::load_language(&data0, "engus")?;
+    let fr = fmg::load_language(&data0, "frafr")?;
+
+    let extracted = bosses::extract(&game, &params, &en, &fr, |done, total| progress(Progress { step: "bosses", done, total }))?;
+    write_json(&out.join("bosses.json"), &extracted.bosses)?;
+
     let projector = Projector::new(get("WorldMapLegacyConvParam")?)?;
+    let graces = super::graces(get("BonfireWarpParam")?)?;
     let mut markers = Vec::new();
-    for g in super::graces(get("BonfireWarpParam")?)? {
+    for g in &graces {
         if let Some(pos) = projector.project(g.pos) {
             markers.push(Marker { flag: g.flag, kind: "grace", pos });
         }
     }
-    for b in super::bosses(get("GameAreaParam")?)? {
+    for b in &extracted.placements {
         if let Some(pos) = projector.project(b.pos) {
             markers.push(Marker { flag: b.flag, kind: "boss", pos });
         }
     }
-    std::fs::write(out.join("markers.json"), serde_json::to_vec(&markers).map_err(|e| ExtractError::new(e.to_string()))?)?;
+    write_json(&out.join("markers.json"), &markers)?;
+    write_json(&out.join("translations.json"), &translations(&graces, &en, &fr))?;
     // Kept to place the player's saved position on the map later.
     std::fs::write(out.join(LEGACY_CONV_FILE), get("WorldMapLegacyConvParam")?)?;
 
-    let data0 = Archive::open(&game, "Data0")?;
     let tiles = TileSet::open(&data0)?;
     let mut maps = Vec::new();
     let total: usize = MAPS.iter().map(|m| tiles.grid(&format!("{m:?}"), 0)).map(|(w, h)| (w * h) as usize).sum();
@@ -116,6 +126,59 @@ pub fn build(game_root: &Path, out: &Path, mut progress: impl FnMut(Progress)) -
     let manifest = Manifest { format: FORMAT, game_build: game_build(&game), maps };
     std::fs::write(out.join("manifest.json"), serde_json::to_vec_pretty(&manifest).map_err(|e| ExtractError::new(e.to_string()))?)?;
     Ok(manifest)
+}
+
+fn write_json(path: &Path, value: &impl Serialize) -> Result<()> {
+    std::fs::write(path, serde_json::to_vec(value).map_err(|e| ExtractError::new(e.to_string()))?)?;
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct Translations {
+    /// db entry id -> French name
+    names: HashMap<String, String>,
+    /// English region name -> French
+    regions: HashMap<String, String>,
+}
+
+/// French names for the progress database, looked up in the game's own text:
+/// graces by their text id, everything else by matching the English name.
+fn translations(graces: &[super::Grace], en: &HashMap<String, fmg::Fmg>, fr: &HashMap<String, fmg::Fmg>) -> Translations {
+    let places = bosses::reverse(en.get("PlaceName"), fr.get("PlaceName"));
+    let npcs = bosses::reverse(en.get("NpcName"), fr.get("NpcName"));
+    let goods = bosses::reverse(en.get("GoodsName"), fr.get("GoodsName"));
+    let place_names = fr.get("PlaceName");
+    let grace_names: HashMap<u32, &String> =
+        graces.iter().filter_map(|g| Some((g.flag, place_names?.get(&g.text_id)?))).collect();
+
+    let mut names = HashMap::new();
+    let mut regions = HashMap::new();
+    for e in &crate::progress::db().entries {
+        if let Some(region) = &e.region {
+            if let Some(f) = places.get(&region.to_lowercase()) {
+                regions.insert(region.clone(), f.clone());
+            }
+        }
+        let name = match e.category.as_str() {
+            "grace" => grace_names.get(&e.flag).map(|s| s.to_string()),
+            "boss" => {
+                // "Night's Cavalry (Limgrave)": translate the name and the place separately.
+                let (base, suffix) = match e.name.split_once(" (") {
+                    Some((b, s)) => (b, Some(s.trim_end_matches(')'))),
+                    None => (e.name.as_str(), None),
+                };
+                npcs.get(&base.to_lowercase()).map(|b| match suffix {
+                    Some(s) => format!("{b} ({})", places.get(&s.to_lowercase()).map_or(s, |p| p.as_str())),
+                    None => b.clone(),
+                })
+            }
+            _ => goods.get(&e.name.to_lowercase()).cloned(),
+        };
+        if let Some(n) = name {
+            names.insert(e.id.clone(), n);
+        }
+    }
+    Translations { names, regions }
 }
 
 fn save_jpeg(img: &RgbImage, path: &Path) -> Result<()> {

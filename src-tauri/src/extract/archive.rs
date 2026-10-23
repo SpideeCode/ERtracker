@@ -152,6 +152,26 @@ impl Archive {
         self.files.contains_key(&path_hash(path))
     }
 
+    /// Every map layout in this archive, as (map name, path). File names are
+    /// not stored, so candidate names are hashed and looked up.
+    pub fn msb_paths(&self) -> Vec<(String, String)> {
+        let mut out = Vec::new();
+        for area in 10..=99u32 {
+            for b in 0..=99u32 {
+                for c in 0..=99u32 {
+                    for d in [0u32, 1, 2, 10, 11, 12, 99] {
+                        let name = format!("m{area:02}_{b:02}_{c:02}_{d:02}");
+                        let path = format!("/map/mapstudio/{name}.msb.dcx");
+                        if self.contains(&path) {
+                            out.push((name, path));
+                        }
+                    }
+                }
+            }
+        }
+        out
+    }
+
     pub fn len(&self) -> usize {
         self.files.len()
     }

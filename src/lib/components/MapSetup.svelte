@@ -44,10 +44,11 @@
   <h2>{status.outdated ? "Mettre à jour les cartes" : "Préparer les cartes"}</h2>
   <p class="muted">
     {#if status.outdated}
-      Le jeu a été mis à jour depuis la dernière préparation. Relance-la pour avoir les cartes et les positions à jour.
+      Le jeu ou l'app a été mis à jour depuis la dernière préparation. Relance-la pour avoir toutes les données
+      (fiches de boss, noms en français, positions).
     {:else}
       Les cartes et les positions des grâces et des boss sont lues directement dans ton installation d'Elden Ring.
-      C'est fait une seule fois (environ 30 secondes, ~80 Mo) et rien n'est envoyé sur internet.
+      C'est fait une seule fois (environ 45 secondes, ~80 Mo) et rien n'est envoyé sur internet.
     {/if}
   </p>
 
@@ -62,7 +63,11 @@
   {#if running}
     <div class="bar"><div style="width: {percent}%"></div></div>
     <p class="muted small">
-      {progress?.step === "tiles" ? `Tuiles de carte : ${progress.done} / ${progress.total}` : "Lecture des données du jeu…"}
+      {progress?.step === "tiles"
+        ? `Tuiles de carte : ${progress.done} / ${progress.total}`
+        : progress?.step === "bosses"
+          ? `Recherche des boss dans les cartes : ${progress.done} / ${progress.total}`
+          : "Lecture des données du jeu…"}
     </p>
   {:else}
     <button class="primary" onclick={start} disabled={!gameDir}>

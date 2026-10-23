@@ -3,7 +3,10 @@
 
 pub mod archive;
 pub mod binder;
+pub mod bosses;
 pub mod dcx;
+pub mod fmg;
+pub mod msb;
 pub mod oodle;
 pub mod param;
 pub mod regulation;

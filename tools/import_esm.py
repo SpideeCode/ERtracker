@@ -55,7 +55,8 @@ def clean_name(name: str) -> tuple[str, str | None]:
     m = re.match(r"^\[([^\]]+)\]\s*(.*)$", name)
     if m:
         region, name = m.group(1), m.group(2)
-    name = re.sub(r"\s*\|\s*(Unlocked|Defeated|Visible|Acquired)\s*$", "", name)
+    # Drop status suffixes such as "| Unlocked" or "| NG+ Persistent".
+    name = name.split(" | ")[0]
     return name.strip(), region
 
 

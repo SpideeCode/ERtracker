@@ -1,9 +1,11 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { convertFileSrc } from "@tauri-apps/api/core";
+  import { onMount, untrack } from "svelte";
   import L from "leaflet";
   import "leaflet/dist/leaflet.css";
-  import { entriesById, tracker } from "$lib/tracker.svelte";
+  import { db, tracker } from "$lib/tracker.svelte";
+  import { assetBase, gamedata } from "$lib/gamedata.svelte";
+  import { formatDistance, nearestGraces } from "$lib/route";
+  import { ui } from "$lib/ui.svelte";
   import type { Entry, MapId, MapInfo, MarkerPos } from "$lib/types";
 
   let { maps }: { maps: MapInfo[] } = $props();
@@ -14,11 +16,8 @@
     M10: "Royaume de l'Ombre",
     M11: "Souterrain (DLC)",
   };
-  const KIND_COLORS = { grace: "#e8c46a", boss: "#e0574a" } as const;
+  const KIND_COLORS: Record<string, string> = { grace: "#e8c46a", boss: "#e0574a" };
   const DONE_COLOR = "#5fae6a";
-
-  // http://ertiles.localhost/ on Windows, ertiles://localhost/ elsewhere.
-  const base = convertFileSrc("", "ertiles");
 
   let el: HTMLDivElement;
   let map: L.Map;
@@ -27,13 +26,20 @@
   let showGraces = $state(true);
   let showBosses = $state(true);
   let missingOnly = $state(false);
-  let markers = $state<(MarkerPos & { entry: Entry })[]>([]);
   let shown = $state(0);
   let player: L.Marker | null = null;
-  let centeredOnPlayer = false;
+  let centered = false;
 
-  const layer = L.layerGroup();
+  const markerLayer = L.layerGroup();
+  const routeLayer = L.layerGroup();
   const info = $derived(maps.find((m) => m.id === current) ?? maps[0]);
+
+  const markers = $derived(
+    db.entries.flatMap((entry) => {
+      const pos = gamedata.positions.get(entry.id);
+      return pos && (entry.category === "grace" || entry.category === "boss") ? [{ entry, pos }] : [];
+    }),
+  );
 
   const toLatLng = (x: number, y: number) => map.unproject([x, y], info.max_zoom);
 
@@ -47,20 +53,18 @@
       preferCanvas: true,
       attributionControl: false,
     });
-    layer.addTo(map);
-
-    fetch(base + "markers.json")
-      .then((r) => r.json())
-      .then((all: MarkerPos[]) => {
-        markers = all.flatMap((m) => {
-          const entry = entriesById.get(`${m.kind}:${m.flag}`);
-          return entry ? [{ ...m, entry }] : [];
-        });
-      });
+    markerLayer.addTo(map);
+    routeLayer.addTo(map);
+    // The side sheet changes the map's width.
+    const resize = new ResizeObserver(() => map.invalidateSize());
+    resize.observe(el);
 
     const startMap = tracker.snapshot?.map_position?.map;
     if (startMap && maps.some((m) => m.id === startMap)) current = startMap;
-    return () => map.remove();
+    return () => {
+      resize.disconnect();
+      map.remove();
+    };
   });
 
   // Base tiles for the selected map.
@@ -69,7 +73,7 @@
     if (!map || !m) return;
     tileLayer?.remove();
     const bounds = L.latLngBounds(toLatLng(0, m.height), toLatLng(m.width, 0));
-    tileLayer = L.tileLayer(`${base}tiles/${m.id}/{z}/{x}/{y}.jpg`, {
+    tileLayer = L.tileLayer(`${assetBase}tiles/${m.id}/{z}/{x}/{y}.jpg`, {
       minNativeZoom: m.min_zoom,
       maxNativeZoom: m.max_zoom,
       minZoom: 2,
@@ -79,24 +83,27 @@
     }).addTo(map);
     tileLayer.bringToBack();
     map.setMaxBounds(bounds.pad(0.2));
-    if (!centeredOnPlayer) map.fitBounds(bounds);
+    if (!untrack(() => centered)) map.fitBounds(bounds);
   });
 
-  // Markers: rebuilt when the map or filters change, restyled when progress changes.
+  // Markers: rebuilt when the map, filters or progress change.
   $effect(() => {
     if (!map) return;
     const done = tracker.completed;
-    layer.clearLayers();
+    const selected = ui.sheet;
+    markerLayer.clearLayers();
     let count = 0;
-    for (const m of markers) {
-      if (m.map !== current) continue;
-      if ((m.kind === "grace" && !showGraces) || (m.kind === "boss" && !showBosses)) continue;
-      const isDone = done.has(m.entry.id);
+    for (const { entry, pos } of markers) {
+      if (pos.map !== current) continue;
+      if ((entry.category === "grace" && !showGraces) || (entry.category === "boss" && !showBosses)) continue;
+      const isDone = done.has(entry.id);
       if (missingOnly && isDone) continue;
-      const circle = L.circleMarker(toLatLng(m.x, m.y), style(m.kind, isDone))
-        .bindTooltip(m.entry.name, { direction: "top", offset: [0, -6] })
-        .bindPopup(popup(m.entry, isDone));
-      circle.addTo(layer);
+      const legendary = gamedata.bosses.get(entry.id)?.legendary ?? false;
+      const circle = L.circleMarker(toLatLng(pos.x, pos.y), style(entry, isDone, legendary, entry.id === selected))
+        .bindTooltip(gamedata.name(entry), { direction: "top", offset: [0, -6] });
+      if (entry.category === "boss") circle.on("click", () => (ui.sheet = entry.id));
+      else circle.bindPopup(popup(entry, isDone));
+      circle.addTo(markerLayer);
       count++;
     }
     shown = count;
@@ -114,29 +121,61 @@
       zIndexOffset: 1000,
       interactive: false,
     }).addTo(map);
-    if (!centeredOnPlayer) {
-      centeredOnPlayer = true;
+    if (!centered && !ui.focus) {
+      centered = true;
       map.setView(toLatLng(pos.x, pos.y), 5);
     }
   });
 
-  function style(kind: MarkerPos["kind"], done: boolean): L.CircleMarkerOptions {
+  // Focus requested from a boss sheet: centre on it and draw the way from the
+  // closest discovered grace.
+  $effect(() => {
+    const id = ui.focus;
+    const target = id ? gamedata.positions.get(id) : undefined;
+    if (!map || !id || !target) return;
+    untrack(() => {
+      current = target.map;
+      centered = true;
+      ui.sheet = id;
+      drawRoute(target);
+      map.setView(toLatLng(target.x, target.y), 5.5);
+      ui.focus = null;
+    });
+  });
+
+  function drawRoute(target: MarkerPos) {
+    routeLayer.clearLayers();
+    const warp = nearestGraces(target, gamedata.positions, tracker.completed, 500).find((g) => g.discovered);
+    if (!warp) return;
+    const from = toLatLng(warp.pos.x, warp.pos.y);
+    const to = toLatLng(target.x, target.y);
+    L.polyline([from, to], { color: "#5ab0ff", weight: 3, dashArray: "8 8", interactive: false }).addTo(routeLayer);
+    L.circleMarker(from, { radius: 9, color: "#5ab0ff", weight: 2, fill: false, interactive: false }).addTo(routeLayer);
+    L.tooltip({ permanent: true, direction: "right", className: "route-label" })
+      .setLatLng(from)
+      .setContent(`${gamedata.name(warp.grace)} → ${formatDistance(warp.distance)} ${warp.direction}`)
+      .addTo(routeLayer);
+  }
+
+  function style(entry: Entry, done: boolean, legendary: boolean, selected: boolean): L.CircleMarkerOptions {
+    const boss = entry.category === "boss";
     return {
-      radius: kind === "boss" ? 7 : 5,
-      color: done ? DONE_COLOR : "#14110b",
-      weight: 1.5,
-      fillColor: done ? DONE_COLOR : KIND_COLORS[kind],
+      radius: boss ? (legendary ? 9 : 7) : 5,
+      color: selected ? "#5ab0ff" : done ? DONE_COLOR : legendary ? "#f3d27a" : "#14110b",
+      weight: selected ? 3 : legendary ? 2.5 : 1.5,
+      fillColor: done ? DONE_COLOR : KIND_COLORS[entry.category],
       fillOpacity: done ? 0.55 : 0.95,
-      opacity: done ? 0.7 : 1,
+      opacity: done && !selected ? 0.7 : 1,
     };
   }
 
   function popup(entry: Entry, done: boolean) {
     const div = document.createElement("div");
     const title = document.createElement("strong");
-    title.textContent = entry.name;
+    title.textContent = gamedata.name(entry);
     const meta = document.createElement("div");
-    meta.textContent = `${entry.region ?? ""}${entry.region ? " · " : ""}${done ? "Fait ✓" : "À faire"}`;
+    const region = gamedata.region(entry);
+    meta.textContent = `${region ? region + " · " : ""}${done ? "Découverte ✓" : "Pas encore découverte"}`;
     div.append(title, meta);
     return div;
   }
@@ -164,7 +203,7 @@
       <label><input type="checkbox" bind:checked={missingOnly} /> Manquants seulement</label>
     </div>
     <div class="foot">
-      <span class="muted">{shown} repères affichés</span>
+      <span class="muted">{shown} repères affichés · clique un boss pour sa fiche</span>
       {#if tracker.snapshot?.map_position}
         <button class="link" onclick={centerOnPlayer}>◎ Ma position</button>
       {/if}
@@ -272,5 +311,9 @@
     background: var(--surface);
     color: var(--text);
     border-color: var(--border-strong);
+  }
+  :global(.leaflet-tooltip.route-label) {
+    border-color: #5ab0ff;
+    font-weight: 600;
   }
 </style>
