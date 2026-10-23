@@ -4,6 +4,7 @@
   import BossSheet from "./BossSheet.svelte";
   import GraceSheet from "./GraceSheet.svelte";
   import ItemSheet from "./ItemSheet.svelte";
+  import EquipSheet from "./EquipSheet.svelte";
 
   let { id }: { id: string } = $props();
   const kind = $derived(id.split(":")[0]);
@@ -17,6 +18,8 @@
     <GraceSheet {id} />
   {:else if kind === "item"}
     <ItemSheet {id} />
+  {:else if kind === "equip"}
+    <EquipSheet {id} />
   {/if}
 </aside>
 

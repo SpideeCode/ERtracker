@@ -10,6 +10,7 @@
   import Sheet from "$lib/components/Sheet.svelte";
   import ItemList from "$lib/components/ItemList.svelte";
   import GlobalSearch from "$lib/components/GlobalSearch.svelte";
+  import Builds from "$lib/components/Builds.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
   import { mapdata } from "$lib/mapdata.svelte";
   import { ui } from "$lib/ui.svelte";
@@ -110,6 +111,10 @@
       <span>Carte</span>
     </button>
 
+    <button class:active={view.kind === "builds"} onclick={() => (ui.view = { kind: "builds" })}>
+      <span>Conseiller de build</span>
+    </button>
+
     <div class="group">Progression</div>
     {#each db.categories as c (c.id)}
       <button class:active={isActive(c.id)} onclick={() => open(c.id)}>
@@ -147,6 +152,8 @@
         <BossList />
       {:else if view.kind === "items"}
         <ItemList />
+      {:else if view.kind === "builds"}
+        <Builds />
       {:else if view.kind === "quests"}
         <Quests />
       {:else if view.kind === "map"}

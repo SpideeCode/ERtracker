@@ -4,6 +4,7 @@
   import { gamedata } from "$lib/gamedata.svelte";
   import { categoryById, itemCategory, itemLabel, pickupCategory } from "$lib/items";
   import RouteCard from "./RouteCard.svelte";
+  import EquipmentDetails from "./EquipmentDetails.svelte";
 
   let { id }: { id: string } = $props();
 
@@ -47,6 +48,13 @@
       </ul>
     </section>
   {/if}
+
+  {#each pickup.items.slice(0, 4) as item}
+    <section class="card">
+      <h3>{pickup.items.length > 1 ? itemLabel(item) : "Détails"}</h3>
+      <EquipmentDetails cat={item.cat} id={item.id} />
+    </section>
+  {/each}
 
   <RouteCard {id} pos={{ ...pickup, kind: "item" }} goal="l'objet" />
 

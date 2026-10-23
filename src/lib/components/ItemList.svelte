@@ -5,11 +5,33 @@
   import { formatDistance, heading } from "$lib/route";
   import { ITEM_CATEGORIES, categoryById, matches, pickupCategory, pickupTitle } from "$lib/items";
   import { ui } from "$lib/ui.svelte";
+  import { catalog } from "$lib/catalog.svelte";
+  import { estimate, rarityOf } from "$lib/equipment";
+  import type { ItemPickup } from "$lib/types";
 
   let filter = $state<"todo" | "done" | "all">("todo");
   let category = $state<string>("important");
   let search = $state("");
   let limit = $state(150);
+  let sort = $state<"near" | "rarity" | "power">("near");
+
+  const rarity = (p: ItemPickup) => Math.max(...p.items.map((i) => catalog.rarity(i.cat, i.id)));
+  /** Comparable strength: estimated damage for weapons, absorption for armour, rarity otherwise. */
+  function power(p: ItemPickup): number {
+    return Math.max(
+      ...p.items.map((i) => {
+        if (i.cat === 2) {
+          const w = catalog.weapons.get(Math.floor(i.id / 10000) * 10000);
+          return w ? estimate(w, tracker.character?.stats).total : 0;
+        }
+        if (i.cat === 3) {
+          const a = catalog.armor.get(i.id);
+          return a ? a.absorption.reduce((x, y) => x + y, 0) : 0;
+        }
+        return catalog.rarity(i.cat, i.id) * 10;
+      }),
+    );
+  }
 
   const me = $derived(tracker.snapshot?.map_position ?? null);
 
@@ -45,7 +67,12 @@
           direction: near ? heading(r.p.x - me.x, r.p.y - me.y) : null,
         };
       })
-      .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity) || a.title.localeCompare(b.title));
+      .map((r) => ({ ...r, rarity: rarity(r.p) }))
+      .sort((a, b) => {
+        if (sort === "rarity") return b.rarity - a.rarity || (a.distance ?? Infinity) - (b.distance ?? Infinity);
+        if (sort === "power") return power(b.p) - power(a.p);
+        return (a.distance ?? Infinity) - (b.distance ?? Infinity) || a.title.localeCompare(b.title);
+      });
   });
   const done = $derived(all.filter((r) => r.done).length);
 </script>
@@ -71,6 +98,11 @@
     <button class:active={filter === "done"} onclick={() => (filter = "done")}>Récupérés</button>
     <button class:active={filter === "all"} onclick={() => (filter = "all")}>Tous</button>
   </div>
+  <select bind:value={sort} title="Trier">
+    <option value="near">Plus proches de moi</option>
+    <option value="rarity">Plus rares</option>
+    <option value="power">Plus puissants</option>
+  </select>
 </div>
 
 <div class="chips">
@@ -96,7 +128,10 @@
         <td>
           <div class="name">
             <span class="swatch" style="background: {categoryById.get(r.category)?.color}"></span>
-            {r.title}
+            <span style="color: {r.rarity > 0 ? rarityOf(r.rarity).color : 'inherit'}">{r.title}</span>
+            {#if r.p.items.some((i) => catalog.isOwned(i.cat, i.cat === 2 ? Math.floor(i.id / 10000) * 10000 : i.id))}
+              <span class="owned" title="Déjà dans ton inventaire">possédé</span>
+            {/if}
           </div>
           {#if r.p.items[0].name.fr && r.p.items[0].name.fr !== r.p.items[0].name.en}
             <div class="muted small">{r.p.items[0].name.en}</div>
@@ -212,6 +247,13 @@
   }
   .state {
     width: 22px;
+  }
+  .owned {
+    font-size: 11px;
+    color: #5fae6a;
+    border: 1px solid #3f6b42;
+    border-radius: 8px;
+    padding: 0 6px;
   }
   .box {
     width: 16px;

@@ -4,6 +4,7 @@
 pub mod archive;
 pub mod binder;
 pub mod bosses;
+pub mod catalog;
 pub mod dcx;
 pub mod fmg;
 pub mod items;

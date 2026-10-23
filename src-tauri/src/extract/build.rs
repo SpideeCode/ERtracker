@@ -4,6 +4,7 @@
 //! Output layout:
 //!   tiles/{M00,M01,M10,M11}/{z}/{x}/{y}.jpg   Leaflet pyramid, z = MAX_ZOOM is level 0
 //!   markers.json                              positions keyed by event flag
+//!   catalog.json                              equipment stats, upgrade costs, spells, tears
 //!   items.json                                item pickups (flag, contents, position)
 //!   bosses.json                               boss sheets (resistances, runes, remembrances)
 //!   places.json                               named map points (dungeon entrances, landmarks)
@@ -14,7 +15,7 @@
 use super::archive::Archive;
 use super::tiles::{TileSet, TILE};
 use super::world::{MapId, MapPos, Projector};
-use super::{bosses, fmg, items, oodle, regulation, ExtractError, Result};
+use super::{bosses, catalog, fmg, items, oodle, regulation, ExtractError, Result};
 use image::{imageops, Rgb, RgbImage, RgbaImage};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -72,7 +73,7 @@ struct Place {
     pos: MapPos,
 }
 
-pub const FORMAT: u32 = 4;
+pub const FORMAT: u32 = 5;
 pub const LEGACY_CONV_FILE: &str = "legacy_conv.param";
 
 pub fn game_build(game: &Path) -> String {
@@ -114,6 +115,7 @@ pub fn build(game_root: &Path, out: &Path, mut progress: impl FnMut(Progress)) -
         }
     }
     write_json(&out.join("markers.json"), &markers)?;
+    write_json(&out.join("catalog.json"), &catalog::extract(&params, &en, &fr)?)?;
     write_json(&out.join("items.json"), &items::extract(&extracted.treasures, &params, &projector, &en, &fr)?)?;
     write_json(&out.join("places.json"), &places(get("WorldMapPointParam")?, &projector, &en, &fr)?)?;
     write_json(&out.join("translations.json"), &translations(&graces, &en, &fr))?;

@@ -43,6 +43,8 @@ pub struct Character {
     /// False while the game is in the middle of writing this slot.
     pub checksum_ok: bool,
     pub position: Option<Position>,
+    pub stats: [u32; 8],
+    pub inventory: Vec<u32>,
     #[serde(skip)]
     flags: Range<usize>,
 }
@@ -107,6 +109,8 @@ impl SaveFile {
                 version: info.version,
                 checksum_ok,
                 position: info.position,
+                stats: info.stats,
+                inventory: info.inventory,
                 flags: flags_start..flags_start + event_flags::EVENT_FLAGS_SIZE,
             });
         }

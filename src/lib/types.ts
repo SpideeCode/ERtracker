@@ -41,6 +41,10 @@ export interface Position {
 
 export interface Character {
   slot: number;
+  /** Vigor, mind, endurance, strength, dexterity, intelligence, faith, arcane. */
+  stats: number[];
+  /** Owned item ids, category in the top nibble (0 weapon, 1 armour, 2 talisman, 4 goods, 8 ash of war). */
+  inventory: number[];
   name: string;
   level: number;
   seconds_played: number;
@@ -111,6 +115,65 @@ export interface MarkerPos extends MapPos {
   kind: "grace" | "boss" | "item";
   /** Map block in the game's frame, e.g. "m30_04_00" (a catacomb) or "m60_42_36". */
   block: string;
+}
+
+type Text = { en: string; fr: string | null };
+
+export interface CatalogWeapon {
+  id: number;
+  name: Text;
+  info: Text | null;
+  rarity: number;
+  weight: number;
+  /** Physical, magic, fire, lightning, holy. */
+  attack: number[];
+  attack_max: number[];
+  /** Strength, dexterity, intelligence, faith, arcane. */
+  scaling: number[];
+  scaling_max: number[];
+  requirements: number[];
+  max_level: number;
+  upgrade: string;
+  infusable: boolean;
+}
+
+export interface CatalogArmor {
+  id: number;
+  name: Text;
+  rarity: number;
+  weight: number;
+  /** 0 head, 1 chest, 2 arms, 3 legs */
+  slot: number;
+  /** physical, strike, slash, pierce, magic, fire, lightning, holy */
+  absorption: number[];
+  resistance: number[];
+}
+
+export interface CatalogTalisman {
+  id: number;
+  name: Text;
+  info: Text | null;
+  rarity: number;
+  weight: number;
+  group: number;
+}
+
+export interface CatalogGoods {
+  id: number;
+  name: Text;
+  info: Text | null;
+  goods_type: number;
+  rarity: number;
+  spell: { fp: number; slots: number; requirements: number[] } | null;
+}
+
+export interface Catalog {
+  upgrades: Record<string, { level: number; runes: number; materials: { id: number; count: number; name: Text }[] }[]>;
+  weapons: CatalogWeapon[];
+  armor: CatalogArmor[];
+  talismans: CatalogTalisman[];
+  goods: CatalogGoods[];
+  ashes_of_war: { id: number; name: Text; info: Text | null }[];
 }
 
 /** One item of a pickup (items.json). */
