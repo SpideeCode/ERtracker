@@ -274,7 +274,30 @@ ERtracker/
 
 ---
 
-## 10. Prérequis côté machine
+## 10. Trackers existants (analysés le 2026-10-23)
+
+| Projet | Ce qu'il fait | Réutilisable ? |
+|---|---|---|
+| [eldenring.krut.top](https://eldenring.krut.top) (Elden Ring Tracker 2.0) | Site web : on dépose la save, carte base/DLC, boss légendaires ou ordinaires, grâces, fragments de carte, fragments d'Arbre-Ombre et cendres vénérées (niveau de bénédiction), scarabées, marchands, ordre de progression, filtre « manquants seulement », 15 langues | Non : code fermé, compte obligatoire, offre Pro. **Idées seulement.** |
+| [EldenRingMap](https://github.com/egormagurin/EldenRingMap) | Serveur Python local, save en direct, 3 506 marqueurs, carte extraite du jeu, 4 calques, altitude des marqueurs | Non : aucune licence. **Idées seulement.** |
+| [Elden Ring Compass](https://github.com/EthanShoeDev/elden-ring-compass) | Web, lecture de la save dans le navigateur | Non : aucune licence (le fork « plus » se dit MIT sans en avoir le droit) |
+| [er-save-manager](https://github.com/Hapfel1/er-save-manager) @ `bde1359` | Éditeur de save : table BST, boss, grâces, quêtes | **Oui (MIT)**, déjà intégré dans `third_party/` |
+| [ER-Save-Editor](https://github.com/ClayAmore/ER-Save-Editor) | Éditeur de save en Rust | **Oui (MIT/Apache)**, structure du slot reprise |
+
+**Ce qu'on reprend comme idées (à implémenter nous-mêmes)** :
+- un sélecteur **Jeu de base / DLC** au-dessus de la carte ;
+- des **calques activables un par un** (grâces, boss légendaires, boss, fragments d'Arbre-Ombre, cendres vénérées, sources spirituelles, objets, scarabées, marchands, lieux), avec un bouton **« manquants seulement »** et un compteur « repères : X sur Y affichés » ;
+- les **boss légendaires** (souvenirs) séparés des boss ordinaires ;
+- un **niveau de bénédiction** (Arbre-Ombre /20, cendres vénérées /10) avec ce qui reste à trouver ;
+- un **ordre de progression conseillé** ;
+- un mode **« save de quelqu'un d'autre »** en lecture seule ;
+- des **badges** ou succès.
+
+**Ce qui nous distingue** : une app native en direct (surveillance du fichier, rien à déposer), sans compte, hors ligne, tous les objets ramassables (pas seulement boss et grâces), les quêtes PNJ, et des cartes extraites de l'install du joueur.
+
+---
+
+## 11. Prérequis côté machine
 
 - **Rust** (absent actuellement, à installer via rustup) et **Node.js** (présent) ;
 - WebView2 (déjà intégré à Windows 11) ;
