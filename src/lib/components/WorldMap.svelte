@@ -198,6 +198,11 @@
       L.circleMarker(points[0], { radius: 9, color: "#5ab0ff", weight: 2, fill: false, interactive: false }).addTo(routeLayer);
       label(points[0], `① ${gamedata.name(plan.warp.grace)}`);
     }
+    if (plan.gate) {
+      const at = toLatLng(plan.gate.pos.x, plan.gate.pos.y);
+      L.circleMarker(at, { radius: 9, color: "#d39b45", weight: 3, fill: false, interactive: false }).addTo(routeLayer);
+      label(at, `À débloquer : ${gamedata.name(plan.gate.grace)}`);
+    }
     if (plan.entrance) {
       const at = toLatLng(plan.entrance.x, plan.entrance.y);
       L.marker(at, { icon: L.divIcon({ className: "entrance-icon", iconSize: [16, 16] }), interactive: false }).addTo(routeLayer);

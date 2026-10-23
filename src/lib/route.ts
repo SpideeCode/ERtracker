@@ -36,6 +36,8 @@ export interface RoutePlan {
   entrance?: Place;
   /** Name of the dungeon the boss is in, if any. */
   dungeon?: string;
+  /** Undiscovered grace that most likely opens the area the boss is in. */
+  gate?: GraceHop;
 }
 
 const DIRECTIONS = ["nord", "nord-est", "est", "sud-est", "sud", "sud-ouest", "ouest", "nord-ouest"];
@@ -71,6 +73,35 @@ function hop(grace: Entry, pos: MarkerPos, target: { x: number; y: number; heigh
 }
 
 const cost = (h: GraceHop) => h.distance + CLIMB_WEIGHT * Math.abs(h.climb);
+
+/**
+ * When the grace closest to a spot has not been discovered and is much closer
+ * than any discovered one, the spot is almost certainly in an area the player
+ * has not reached yet (another way in, a lift, a bridge...).
+ */
+function findGate(hops: GraceHop[], best: GraceHop | undefined, allowed: (h: GraceHop) => boolean): GraceHop | undefined {
+  const gate = hops.filter((h) => !h.discovered && allowed(h)).sort((a, b) => cost(a) - cost(b))[0];
+  if (!gate || cost(gate) > 500) return undefined;
+  return !best || (cost(gate) * 1.5 < cost(best) && cost(best) - cost(gate) > 100) ? gate : undefined;
+}
+
+/** Steps through an undiscovered grace: reach it first, then go on from there. */
+function gateSteps(gate: GraceHop, from: GraceHop | undefined, goal: string, nameOf: (e: Entry) => string): RouteStep[] {
+  const leg = from ? hop(gate.grace, from.pos, gate.pos, true) : undefined;
+  return [
+    {
+      warning: true,
+      parts: ["Passe d'abord par ", { strong: nameOf(gate.grace), place: gate.pos }, " (pas encore découverte)"],
+      note:
+        "Elle est bien plus proche du boss que tes grâces : c'est souvent le vrai chemin, par une zone à débloquer ou un accès particulier" +
+        (leg ? ` (elle est à ${formatDistance(leg.distance)} vers le ${leg.direction} de ta grâce, ${formatClimb(-leg.climb)}).` : "."),
+    },
+    {
+      parts: ["Depuis cette grâce, ", goal, " est à ", { strong: formatDistance(gate.distance) }, " vers le ", { strong: gate.direction }],
+      note: `${formatClimb(gate.climb).replace(/^./, (c) => c.toUpperCase())} que la grâce.`,
+    },
+  ];
+}
 
 /** Graces on the same map as the target, closest first (plain distance). */
 export function nearestGraces(target: MarkerPos, positions: Map<string, MarkerPos>, completed: Set<string>, limit = 3): GraceHop[] {
@@ -140,6 +171,22 @@ export function planRoute(
         parts: ["Entre dans ", { strong: dungeon, place: entrance }, " et progresse jusqu'au boss"],
         note: `Le boss est ${formatClimb(depth)} que l'entrée, à ${formatDistance(Math.hypot(target.x - entrance.x, target.y - entrance.y))} à vol d'oiseau.`,
       };
+      const entranceHops = allHops(entrance, positions, completed).filter((h) => isOpen(h.pos.block));
+      const gate = findGate(entranceHops, toEntrance, () => true);
+      if (gate) {
+        return {
+          dungeon,
+          entrance,
+          gate,
+          warp: toEntrance,
+          path: toEntrance ? [toEntrance.pos, gate.pos, entrance, target] : [gate.pos, entrance, target],
+          steps: [
+            ...(toEntrance ? [{ parts: ["Voyage rapide vers ", { strong: nameOf(toEntrance.grace), place: toEntrance.pos }] }] : []),
+            ...gateSteps(gate, toEntrance, "l'entrée", nameOf),
+            explore,
+          ],
+        };
+      }
       if (!toEntrance) {
         return {
           dungeon,
@@ -168,6 +215,18 @@ export function planRoute(
   // Open world: weigh height differences, only from graces outside dungeons.
   const open = hops.filter((h) => h.discovered && isOpen(h.pos.block)).sort((a, b) => cost(a) - cost(b));
   const best = open[0];
+  const gate = findGate(hops, best, (h) => isOpen(h.pos.block) || h.pos.block === target.block);
+  if (gate) {
+    return {
+      gate,
+      warp: best,
+      path: best ? [best.pos, gate.pos, target] : [gate.pos, target],
+      steps: [
+        ...(best ? [{ parts: ["Voyage rapide vers ", { strong: nameOf(best.grace), place: best.pos }] }] : []),
+        ...gateSteps(gate, best, "le boss", nameOf),
+      ],
+    };
+  }
   if (!best) {
     return {
       path: [],

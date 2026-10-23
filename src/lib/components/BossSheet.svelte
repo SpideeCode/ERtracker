@@ -56,6 +56,12 @@
     return "";
   }
 
+  const gateHelp = $derived(
+    plan?.gate
+      ? `https://www.youtube.com/results?search_query=${encodeURIComponent(`Elden Ring how to get to ${plan.gate.grace.name}`)}`
+      : null,
+  );
+
   const fextralife = $derived(`https://eldenring.wiki.fextralife.com/${encodeURIComponent(englishBase).replace(/%20/g, "+")}`);
   const youtube = $derived(
     `https://www.youtube.com/results?search_query=${encodeURIComponent(`Elden Ring ${englishBase} emplacement guide`)}`,
@@ -110,6 +116,11 @@
       </ol>
       {#if fromMe}
         <p class="muted small">Depuis ta dernière sauvegarde : {formatDistance(fromMe.distance)} vers le {fromMe.direction}.</p>
+      {/if}
+      {#if plan.gate && gateHelp}
+        <button class="secondary" onclick={() => gateHelp && openUrl(gateHelp)}>
+          Comment accéder à {gamedata.name(plan.gate.grace)} ? ↗
+        </button>
       {/if}
       <button class="primary" onclick={() => ui.showOnMap(id)}>Afficher l'itinéraire sur la carte</button>
 
@@ -337,6 +348,17 @@
     padding: 9px 14px;
     font: inherit;
     font-weight: 600;
+    cursor: pointer;
+  }
+  .secondary {
+    width: 100%;
+    margin: 0 0 8px;
+    background: none;
+    border: 1px solid #d39b45;
+    color: #f0c27a;
+    border-radius: 6px;
+    padding: 7px 12px;
+    font: inherit;
     cursor: pointer;
   }
   details {
