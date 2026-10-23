@@ -5,6 +5,7 @@
   import Dashboard from "$lib/components/Dashboard.svelte";
   import CategoryList from "$lib/components/CategoryList.svelte";
   import Quests from "$lib/components/Quests.svelte";
+  import MapView from "$lib/components/MapView.svelte";
 
   type View = { kind: "dashboard" } | { kind: "category"; id: string } | { kind: "quests" } | { kind: "map" };
 
@@ -78,7 +79,7 @@
     <button class:active={view.kind === "quests"} onclick={() => (view = { kind: "quests" })}>Quêtes PNJ</button>
   </nav>
 
-  <main>
+  <main class:full={view.kind === "map"}>
     {#if tracker.error}
       <div class="error">Impossible de lire la sauvegarde : {tracker.error}</div>
     {/if}
@@ -97,14 +98,7 @@
     {:else if view.kind === "quests"}
       <Quests />
     {:else if view.kind === "map"}
-      <h2>Carte</h2>
-      <p class="muted">
-        Les cartes (Entre-terre, souterrain, Royaume de l'Ombre) arrivent à la phase 4 : elles seront extraites
-        de ton installation du jeu.
-      </p>
-      {#if tracker.character?.position}
-        <p>Dernière position sauvegardée : <code>{tracker.character.position.map}</code></p>
-      {/if}
+      <MapView />
     {/if}
   </main>
 
@@ -243,6 +237,11 @@
   main {
     overflow-y: auto;
     padding: 20px 28px;
+    position: relative;
+  }
+  main.full {
+    padding: 0;
+    overflow: hidden;
   }
   .error {
     border: 1px solid var(--danger);

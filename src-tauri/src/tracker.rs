@@ -1,6 +1,7 @@
 //! Current selection (save file + character), file watching and change events.
 
-use crate::paths;
+use crate::extract::world::MapPos;
+use crate::{maps, paths};
 use crate::progress::{self, Diff};
 use crate::save::{Character, SaveFile};
 use notify_debouncer_mini::notify::{RecommendedWatcher, RecursiveMode};
@@ -26,6 +27,8 @@ pub struct Snapshot {
     pub characters: Vec<Character>,
     pub slot: usize,
     pub completed: Vec<String>,
+    /// Selected character's saved position on the extracted maps.
+    pub map_position: Option<MapPos>,
     /// Milliseconds since the Unix epoch.
     pub loaded_at: u64,
 }
@@ -106,6 +109,7 @@ impl Tracker {
             characters: save.characters.clone(),
             slot: character.slot,
             completed: completed.iter().cloned().collect(),
+            map_position: character.position.as_ref().and_then(maps::player_position),
             loaded_at: SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64),
         };
         self.last = Some((path, character.slot, completed));

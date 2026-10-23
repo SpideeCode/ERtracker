@@ -49,12 +49,52 @@ export interface Character {
   position: Position | null;
 }
 
+export type MapId = "M00" | "M01" | "M10" | "M11";
+
+/** Pixel position on a level-0 map image. */
+export interface MapPos {
+  map: MapId;
+  x: number;
+  y: number;
+  height: number;
+}
+
 export interface Snapshot {
   save_path: string;
   characters: Character[];
   slot: number;
   completed: string[];
+  map_position: MapPos | null;
   loaded_at: number;
+}
+
+export interface MapInfo {
+  id: MapId;
+  width: number;
+  height: number;
+  max_zoom: number;
+  min_zoom: number;
+}
+
+export interface MapStatus {
+  manifest: { format: number; game_build: string; maps: MapInfo[] } | null;
+  game_dir: string | null;
+  outdated: boolean;
+  running: boolean;
+}
+
+export interface MapProgress {
+  step: string;
+  done: number;
+  total: number;
+  error: string | null;
+  finished: boolean;
+}
+
+/** One entry of markers.json, written by the extraction. */
+export interface MarkerPos extends MapPos {
+  flag: number;
+  kind: "grace" | "boss";
 }
 
 export interface Update {
