@@ -4,7 +4,7 @@
   import "leaflet/dist/leaflet.css";
   import { db, tracker } from "$lib/tracker.svelte";
   import { assetBase, gamedata } from "$lib/gamedata.svelte";
-  import { formatDistance, nearestGraces } from "$lib/route";
+  import { DUNGEON_ICONS, planRoute } from "$lib/route";
   import { ui } from "$lib/ui.svelte";
   import type { Entry, MapId, MapInfo, MarkerPos } from "$lib/types";
 
@@ -26,6 +26,7 @@
   let showGraces = $state(true);
   let showBosses = $state(true);
   let missingOnly = $state(false);
+  let showDungeons = $state(true);
   let shown = $state(0);
   let player: L.Marker | null = null;
   let centered = false;
@@ -106,6 +107,14 @@
       circle.addTo(markerLayer);
       count++;
     }
+    if (showDungeons) {
+      for (const p of gamedata.places) {
+        if (p.map !== current || !DUNGEON_ICONS.has(p.icon)) continue;
+        L.marker(toLatLng(p.x, p.y), { icon: L.divIcon({ className: "dungeon-icon", iconSize: [10, 10] }) })
+          .bindTooltip(p.name.fr ?? p.name.en, { direction: "top", offset: [0, -4] })
+          .addTo(markerLayer);
+      }
+    }
     shown = count;
   });
 
@@ -145,16 +154,24 @@
 
   function drawRoute(target: MarkerPos) {
     routeLayer.clearLayers();
-    const warp = nearestGraces(target, gamedata.positions, tracker.completed, 500).find((g) => g.discovered);
-    if (!warp) return;
-    const from = toLatLng(warp.pos.x, warp.pos.y);
-    const to = toLatLng(target.x, target.y);
-    L.polyline([from, to], { color: "#5ab0ff", weight: 3, dashArray: "8 8", interactive: false }).addTo(routeLayer);
-    L.circleMarker(from, { radius: 9, color: "#5ab0ff", weight: 2, fill: false, interactive: false }).addTo(routeLayer);
-    L.tooltip({ permanent: true, direction: "right", className: "route-label" })
-      .setLatLng(from)
-      .setContent(`${gamedata.name(warp.grace)} → ${formatDistance(warp.distance)} ${warp.direction}`)
-      .addTo(routeLayer);
+    const plan = planRoute(target, gamedata.positions, tracker.completed, gamedata.places, (e) => gamedata.name(e));
+    if (plan.path.length < 2) return;
+    const points = plan.path.map((p) => toLatLng(p.x, p.y));
+    L.polyline(points, { color: "#5ab0ff", weight: 3, dashArray: "8 8", interactive: false }).addTo(routeLayer);
+    const label = (at: L.LatLng, text: string) =>
+      L.tooltip({ permanent: true, direction: "right", className: "route-label", offset: [10, 0] })
+        .setLatLng(at)
+        .setContent(text)
+        .addTo(routeLayer);
+    if (plan.warp) {
+      L.circleMarker(points[0], { radius: 9, color: "#5ab0ff", weight: 2, fill: false, interactive: false }).addTo(routeLayer);
+      label(points[0], `① ${gamedata.name(plan.warp.grace)}`);
+    }
+    if (plan.entrance) {
+      const at = toLatLng(plan.entrance.x, plan.entrance.y);
+      L.marker(at, { icon: L.divIcon({ className: "entrance-icon", iconSize: [16, 16] }), interactive: false }).addTo(routeLayer);
+      label(at, `Entrée : ${plan.entrance.name.fr ?? plan.entrance.name.en}`);
+    }
   }
 
   function style(entry: Entry, done: boolean, legendary: boolean, selected: boolean): L.CircleMarkerOptions {
@@ -200,6 +217,7 @@
     <div class="filters">
       <label><input type="checkbox" bind:checked={showGraces} /> <span class="dot grace"></span> Grâces</label>
       <label><input type="checkbox" bind:checked={showBosses} /> <span class="dot boss"></span> Boss</label>
+      <label><input type="checkbox" bind:checked={showDungeons} /> <span class="dot dungeon"></span> Donjons</label>
       <label><input type="checkbox" bind:checked={missingOnly} /> Manquants seulement</label>
     </div>
     <div class="foot">
@@ -279,6 +297,16 @@
   .dot.boss {
     background: #e0574a;
   }
+  .dot.dungeon {
+    background: #9fb4c8;
+    border-radius: 2px;
+    transform: rotate(45deg) scale(0.8);
+  }
+  :global(.dungeon-icon) {
+    background: #9fb4c8;
+    border: 1px solid #14110b;
+    transform: rotate(45deg);
+  }
   .foot {
     display: flex;
     justify-content: space-between;
@@ -311,6 +339,12 @@
     background: var(--surface);
     color: var(--text);
     border-color: var(--border-strong);
+  }
+  :global(.entrance-icon) {
+    background: #5ab0ff;
+    border: 2px solid #fff;
+    transform: rotate(45deg);
+    box-shadow: 0 0 10px #5ab0ff;
   }
   :global(.leaflet-tooltip.route-label) {
     border-color: #5ab0ff;

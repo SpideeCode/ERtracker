@@ -53,6 +53,11 @@ pub struct TilePos {
 }
 
 impl TilePos {
+    /// Map block the position belongs to, e.g. "m30_04_00" (a catacomb) or "m60_42_36".
+    pub fn block(&self) -> String {
+        format!("m{:02}_{:02}_{:02}", self.area, self.grid_x, self.grid_z)
+    }
+
     pub(crate) fn read(row: &param::Row, at: usize) -> Self {
         Self {
             area: row.u8(at),

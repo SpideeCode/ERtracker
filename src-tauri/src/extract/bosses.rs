@@ -36,6 +36,8 @@ pub struct Text {
 pub struct BossPlacement {
     pub flag: u32,
     pub pos: TilePos,
+    /// Map block the boss lives in ("m40_00_00"), before any tile-size conversion.
+    pub block: String,
 }
 
 const ABSORPTION_OFFSETS: [usize; 8] = [0x1a4, 0x1a8, 0x1ac, 0x1b0, 0x1b4, 0x1b8, 0x1bc, 0x1c0];
@@ -150,10 +152,17 @@ pub fn extract(
     // Exact enemy positions first, arena positions for the rest.
     let mut placements: Vec<BossPlacement> = found
         .iter()
-        .filter_map(|(flag, (map, _, pos))| Some(BossPlacement { flag: *flag, pos: tile_pos(map, *pos)? }))
+        .filter_map(|(flag, (map, _, pos))| {
+            Some(BossPlacement { flag: *flag, pos: tile_pos(map, *pos)?, block: map.get(..9)?.to_string() })
+        })
         .collect();
     let placed: HashSet<u32> = placements.iter().map(|p| p.flag).collect();
-    placements.extend(arenas.into_iter().filter(|a| !placed.contains(&a.flag)).map(|a| BossPlacement { flag: a.flag, pos: a.pos }));
+    placements.extend(
+        arenas
+            .into_iter()
+            .filter(|a| !placed.contains(&a.flag))
+            .map(|a| BossPlacement { flag: a.flag, block: a.pos.block(), pos: a.pos }),
+    );
     Ok(Extracted { bosses, placements })
 }
 

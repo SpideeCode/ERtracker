@@ -109,6 +109,15 @@ export interface BossSheet {
 export interface MarkerPos extends MapPos {
   flag: number;
   kind: "grace" | "boss";
+  /** Map block in the game's frame, e.g. "m30_04_00" (a catacomb) or "m60_42_36". */
+  block: string;
+}
+
+/** Named point of the in-game map (places.json): dungeon entrances and landmarks. */
+export interface Place extends MapPos {
+  icon: number;
+  block: string;
+  name: { en: string; fr: string | null };
 }
 
 export interface Update {

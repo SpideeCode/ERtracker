@@ -3,7 +3,7 @@
   import { entriesById, tracker } from "$lib/tracker.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
   import { mapdata } from "$lib/mapdata.svelte";
-  import { formatClimb, formatDistance, heading, nearestGraces } from "$lib/route";
+  import { formatClimb, formatDistance, heading, nearestGraces, planRoute } from "$lib/route";
   import { ui } from "$lib/ui.svelte";
 
   let { id }: { id: string } = $props();
@@ -18,10 +18,10 @@
   const englishBase = $derived(entry.name.split(" (")[0]);
   const name = $derived(gamedata.name(entry));
 
-  const graces = $derived(pos ? nearestGraces(pos, gamedata.positions, tracker.completed, 500) : []);
-  // Closest grace the player can actually travel to.
-  const warp = $derived(graces.find((g) => g.discovered));
-  const others = $derived(graces.slice(0, 4));
+  const plan = $derived(
+    pos ? planRoute(pos, gamedata.positions, tracker.completed, gamedata.places, (e) => gamedata.name(e)) : null,
+  );
+  const others = $derived(pos ? nearestGraces(pos, gamedata.positions, tracker.completed, 4) : []);
 
   const me = $derived(tracker.snapshot?.map_position);
   const fromMe = $derived(
@@ -87,28 +87,22 @@
     </p>
   {/if}
 
-  {#if pos}
+  {#if pos && plan}
     <section class="card">
       <h3>Y aller</h3>
+      {#if plan.dungeon}
+        <p class="where">Dans un donjon : <strong>{plan.dungeon}</strong></p>
+      {/if}
       <ol class="steps">
-        {#if warp}
-          <li>
-            <span class="num">1</span>
-            <div>Voyage rapide vers <strong>{gamedata.name(warp.grace)}</strong></div>
-          </li>
-          <li>
-            <span class="num">2</span>
+        {#each plan.steps as step, i}
+          <li class:warning={step.warning}>
+            <span class="num">{step.warning ? "!" : plan.steps.slice(0, i).filter((s) => !s.warning).length + 1}</span>
             <div>
-              Marche <strong>{formatDistance(warp.distance)}</strong> vers le <strong>{warp.direction}</strong>
-              <div class="muted small">Le boss est {formatClimb(warp.climb)} que la grâce.</div>
+              {#each step.parts as part}{#if typeof part === "string"}{part}{:else}<strong>{part.strong}</strong>{/if}{/each}
+              {#if step.note}<div class="muted small">{step.note}</div>{/if}
             </div>
           </li>
-        {:else}
-          <li>
-            <span class="num">!</span>
-            <div>Tu n'as encore découvert aucune grâce dans cette zone : il faudra y aller à pied.</div>
-          </li>
-        {/if}
+        {/each}
       </ol>
       {#if fromMe}
         <p class="muted small">Depuis ta dernière sauvegarde : {formatDistance(fromMe.distance)} vers le {fromMe.direction}.</p>
@@ -282,6 +276,16 @@
     display: flex;
     gap: 10px;
     align-items: flex-start;
+  }
+  .where {
+    margin: 0 0 10px;
+    color: var(--text-dim);
+  }
+  .steps li.warning .num {
+    background: #d39b45;
+  }
+  .steps li.warning {
+    color: #f0c27a;
   }
   .num {
     flex-shrink: 0;

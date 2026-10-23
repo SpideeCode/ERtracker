@@ -5,6 +5,7 @@
 //!   tiles/{M00,M01,M10,M11}/{z}/{x}/{y}.jpg   Leaflet pyramid, z = MAX_ZOOM is level 0
 //!   markers.json                              positions keyed by event flag
 //!   bosses.json                               boss sheets (resistances, runes, remembrances)
+//!   places.json                               named map points (dungeon entrances, landmarks)
 //!   translations.json                         French names for the progress database
 //!   legacy_conv.param                         raw WorldMapLegacyConvParam
 //!   manifest.json                             what was extracted, from which game build
@@ -54,11 +55,23 @@ pub struct Manifest {
 struct Marker {
     flag: u32,
     kind: &'static str,
+    /// Map block in the game's own frame: tells dungeons from the open world.
+    block: String,
     #[serde(flatten)]
     pos: MapPos,
 }
 
-pub const FORMAT: u32 = 2;
+/// A named place drawn on the in-game map (dungeon entrance, church, ruins...).
+#[derive(Serialize)]
+struct Place {
+    icon: u16,
+    block: String,
+    name: bosses::Text,
+    #[serde(flatten)]
+    pos: MapPos,
+}
+
+pub const FORMAT: u32 = 3;
 pub const LEGACY_CONV_FILE: &str = "legacy_conv.param";
 
 pub fn game_build(game: &Path) -> String {
@@ -91,15 +104,16 @@ pub fn build(game_root: &Path, out: &Path, mut progress: impl FnMut(Progress)) -
     let mut markers = Vec::new();
     for g in &graces {
         if let Some(pos) = projector.project(g.pos) {
-            markers.push(Marker { flag: g.flag, kind: "grace", pos });
+            markers.push(Marker { flag: g.flag, kind: "grace", block: g.pos.block(), pos });
         }
     }
     for b in &extracted.placements {
         if let Some(pos) = projector.project(b.pos) {
-            markers.push(Marker { flag: b.flag, kind: "boss", pos });
+            markers.push(Marker { flag: b.flag, kind: "boss", block: b.block.clone(), pos });
         }
     }
     write_json(&out.join("markers.json"), &markers)?;
+    write_json(&out.join("places.json"), &places(get("WorldMapPointParam")?, &projector, &en, &fr)?)?;
     write_json(&out.join("translations.json"), &translations(&graces, &en, &fr))?;
     // Kept to place the player's saved position on the map later.
     std::fs::write(out.join(LEGACY_CONV_FILE), get("WorldMapLegacyConvParam")?)?;
@@ -126,6 +140,20 @@ pub fn build(game_root: &Path, out: &Path, mut progress: impl FnMut(Progress)) -
     let manifest = Manifest { format: FORMAT, game_build: game_build(&game), maps };
     std::fs::write(out.join("manifest.json"), serde_json::to_vec_pretty(&manifest).map_err(|e| ExtractError::new(e.to_string()))?)?;
     Ok(manifest)
+}
+
+/// WorldMapPointParam rows that have a name: dungeon entrances and landmarks.
+fn places(param_data: &[u8], projector: &Projector, en: &HashMap<String, fmg::Fmg>, fr: &HashMap<String, fmg::Fmg>) -> Result<Vec<Place>> {
+    let (Some(en), Some(fr)) = (en.get("PlaceName"), fr.get("PlaceName")) else { return Ok(Vec::new()) };
+    Ok(super::param::Param::read(param_data)?
+        .iter()
+        .filter_map(|r| {
+            let text = r.i32(0x30);
+            let name = bosses::Text { en: en.get(&text)?.clone(), fr: fr.get(&text).cloned() };
+            let tile = super::TilePos::read(&r, 0x20);
+            Some(Place { icon: r.u16(0x0c), block: tile.block(), name, pos: projector.project(tile)? })
+        })
+        .collect())
 }
 
 fn write_json(path: &Path, value: &impl Serialize) -> Result<()> {
