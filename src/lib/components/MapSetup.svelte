@@ -1,82 +1,35 @@
 <script lang="ts">
-  import { invoke } from "@tauri-apps/api/core";
-  import { listen } from "@tauri-apps/api/event";
-  import { onMount } from "svelte";
-  import type { MapProgress, MapStatus } from "$lib/types";
+  import { mapdata } from "$lib/mapdata.svelte";
 
-  let { status, onready }: { status: MapStatus; onready: () => void } = $props();
-
-  // Editable copies, seeded once from the status.
-  let gameDir = $state((() => status.game_dir ?? "")());
-  let progress = $state<MapProgress | null>(null);
-  let error = $state<string | null>(null);
-  let running = $state((() => status.running)());
-
-  onMount(() => {
-    const unlisten = listen<MapProgress>("maps://progress", (e) => {
-      progress = e.payload;
-      if (e.payload.finished) {
-        running = false;
-        if (e.payload.error) error = e.payload.error;
-        else onready();
-      }
-    });
-    return () => {
-      unlisten.then((f) => f());
-    };
-  });
-
-  async function start() {
-    error = null;
-    progress = null;
-    try {
-      await invoke("extract_maps", { gameDir });
-      running = true;
-    } catch (e) {
-      error = String(e);
-    }
-  }
-
-  const percent = $derived(progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0);
+  // Editable copy, seeded once from the detected folder.
+  let gameDir = $state((() => mapdata.status?.game_dir ?? "")());
 </script>
 
 <div class="setup">
-  <h2>{status.outdated ? "Mettre à jour les cartes" : "Préparer les cartes"}</h2>
+  <h2>Préparer les cartes</h2>
   <p class="muted">
-    {#if status.outdated}
-      Le jeu ou l'app a été mis à jour depuis la dernière préparation. Relance-la pour avoir toutes les données
-      (fiches de boss, noms en français, positions).
-    {:else}
-      Les cartes et les positions des grâces et des boss sont lues directement dans ton installation d'Elden Ring.
-      C'est fait une seule fois (environ 45 secondes, ~80 Mo) et rien n'est envoyé sur internet.
-    {/if}
+    Les cartes, les positions des grâces et des boss, leurs fiches et les noms en français sont lus directement dans
+    ton installation d'Elden Ring. C'est fait une seule fois (environ 45 secondes, ~80 Mo) et rien n'est envoyé sur
+    internet.
   </p>
 
   <label>
     Dossier du jeu
-    <input bind:value={gameDir} placeholder="C:\Program Files (x86)\Steam\steamapps\common\ELDEN RING" disabled={running} />
+    <input bind:value={gameDir} placeholder="C:\Program Files (x86)\Steam\steamapps\common\ELDEN RING" disabled={mapdata.running} />
   </label>
-  {#if !status.game_dir && !gameDir}
+  {#if !mapdata.status?.game_dir && !gameDir}
     <p class="muted small">Jeu non trouvé automatiquement : colle le chemin du dossier « ELDEN RING » (celui qui contient « Game »).</p>
   {/if}
 
-  {#if running}
-    <div class="bar"><div style="width: {percent}%"></div></div>
-    <p class="muted small">
-      {progress?.step === "tiles"
-        ? `Tuiles de carte : ${progress.done} / ${progress.total}`
-        : progress?.step === "bosses"
-          ? `Recherche des boss dans les cartes : ${progress.done} / ${progress.total}`
-          : "Lecture des données du jeu…"}
-    </p>
+  {#if mapdata.running}
+    <div class="bar"><div style="width: {mapdata.percent}%"></div></div>
+    <p class="muted small">{mapdata.step()}</p>
   {:else}
-    <button class="primary" onclick={start} disabled={!gameDir}>
-      {status.outdated ? "Mettre à jour" : "Préparer les cartes"}
-    </button>
+    <button class="primary" onclick={() => mapdata.start(gameDir)} disabled={!gameDir}>Préparer les cartes</button>
   {/if}
 
-  {#if error}
-    <div class="error">Échec : {error}</div>
+  {#if mapdata.error}
+    <div class="error">Échec : {mapdata.error}</div>
   {/if}
 </div>
 

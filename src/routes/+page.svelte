@@ -8,7 +8,7 @@
   import MapView from "$lib/components/MapView.svelte";
   import BossList from "$lib/components/BossList.svelte";
   import BossSheet from "$lib/components/BossSheet.svelte";
-  import { gamedata } from "$lib/gamedata.svelte";
+  import { mapdata } from "$lib/mapdata.svelte";
   import { ui } from "$lib/ui.svelte";
 
   let now = $state(Date.now());
@@ -16,13 +16,27 @@
 
   onMount(() => {
     tracker.start();
-    gamedata.load();
+    mapdata.init();
     const timer = setInterval(() => (now = Date.now()), 1000);
-    return () => clearInterval(timer);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && (ui.sheet = null);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("keydown", onKey);
+    };
   });
 
   const snapshot = $derived(tracker.snapshot);
   const fresh = $derived(snapshot ? now - snapshot.loaded_at < 15 * 60 * 1000 : false);
+
+  const counts = $derived(
+    Object.fromEntries(
+      db.categories.map((c) => {
+        const entries = db.entries.filter((e) => e.category === c.id);
+        return [c.id, `${entries.filter((e) => tracker.completed.has(e.id)).length}/${entries.length}`];
+      }),
+    ),
+  );
 
   function folderLabel(path: string) {
     const parts = path.split(/[\\/]/);
@@ -30,9 +44,10 @@
   }
 
   const open = (id: string) => (ui.view = id === "boss" ? { kind: "bosses" } : { kind: "category", id });
+  const isActive = (id: string) => (view.kind === "category" && view.id === id) || (view.kind === "bosses" && id === "boss");
 </script>
 
-<div class="app" class:with-sheet={ui.sheet !== null}>
+<div class="app">
   <header>
     <div class="brand">ERtracker</div>
 
@@ -60,10 +75,17 @@
       </select>
     {/if}
 
+    {#if mapdata.running && mapdata.status?.manifest}
+      <div class="sync" title={mapdata.step()}>
+        Mise à jour des données du jeu… {mapdata.percent} %
+        <div class="sync-bar"><div style="width: {mapdata.percent}%"></div></div>
+      </div>
+    {/if}
+
     <div class="live" class:on={fresh} title={snapshot?.save_path}>
       <span class="dot"></span>
       {#if snapshot}
-        LIVE · lu {ago(snapshot.loaded_at, now)}
+        LIVE · sauvegarde lue {ago(snapshot.loaded_at, now)}
       {:else}
         En attente…
       {/if}
@@ -71,52 +93,60 @@
   </header>
 
   <nav>
-    <button class:active={view.kind === "dashboard"} onclick={() => (ui.view = { kind: "dashboard" })}>Tableau de bord</button>
-    <button class:active={view.kind === "map"} onclick={() => (ui.view = { kind: "map" })}>Carte</button>
-    <div class="sep"></div>
+    <div class="group">Suivi</div>
+    <button class:active={view.kind === "dashboard"} onclick={() => (ui.view = { kind: "dashboard" })}>
+      <span>Tableau de bord</span>
+    </button>
+    <button class:active={view.kind === "map"} onclick={() => (ui.view = { kind: "map" })}>
+      <span>Carte</span>
+    </button>
+
+    <div class="group">Progression</div>
     {#each db.categories as c (c.id)}
-      <button
-        class:active={(view.kind === "category" && view.id === c.id) || (view.kind === "bosses" && c.id === "boss")}
-        onclick={() => open(c.id)}
-      >
-        {c.name.fr}
+      <button class:active={isActive(c.id)} onclick={() => open(c.id)}>
+        <span>{c.name.fr}</span>
+        <span class="count">{counts[c.id]}</span>
       </button>
     {/each}
-    <button class:active={view.kind === "quests"} onclick={() => (ui.view = { kind: "quests" })}>Quêtes PNJ</button>
+    <button class:active={view.kind === "quests"} onclick={() => (ui.view = { kind: "quests" })}>
+      <span>Quêtes PNJ</span>
+    </button>
   </nav>
 
-  <main class:full={view.kind === "map"}>
-    {#if tracker.error}
-      <div class="error">Impossible de lire la sauvegarde : {tracker.error}</div>
-    {/if}
+  <div class="content">
+    <main class:full={view.kind === "map"}>
+      {#if tracker.error}
+        <div class="error">Impossible de lire la sauvegarde : {tracker.error}</div>
+      {/if}
 
-    {#if !snapshot && !tracker.error}
-      <p class="muted">
-        Recherche de ta sauvegarde Elden Ring dans %APPDATA%\EldenRing… Si rien n'apparaît, lance le jeu une fois
-        pour créer un personnage.
-      </p>
-    {:else if view.kind === "dashboard"}
-      <Dashboard {now} {open} />
-    {:else if view.kind === "category"}
-      {#key view.id}
-        <CategoryList category={view.id} />
-      {/key}
-    {:else if view.kind === "bosses"}
-      <BossList />
-    {:else if view.kind === "quests"}
-      <Quests />
-    {:else if view.kind === "map"}
-      <MapView />
-    {/if}
-  </main>
+      {#if !snapshot && !tracker.error}
+        <p class="muted">
+          Recherche de ta sauvegarde Elden Ring dans %APPDATA%\EldenRing… Si rien n'apparaît, lance le jeu une fois
+          pour créer un personnage.
+        </p>
+      {:else if view.kind === "dashboard"}
+        <Dashboard {now} {open} />
+      {:else if view.kind === "category"}
+        {#key view.id}
+          <CategoryList category={view.id} />
+        {/key}
+      {:else if view.kind === "bosses"}
+        <BossList />
+      {:else if view.kind === "quests"}
+        <Quests />
+      {:else if view.kind === "map"}
+        <MapView />
+      {/if}
+    </main>
 
-  {#if ui.sheet}
-    <div class="side">
-      {#key ui.sheet}
-        <BossSheet id={ui.sheet} />
-      {/key}
-    </div>
-  {/if}
+    {#if ui.sheet}
+      <div class="drawer">
+        {#key ui.sheet}
+          <BossSheet id={ui.sheet} />
+        {/key}
+      </div>
+    {/if}
+  </div>
 
   <div class="toasts">
     {#each tracker.toasts as t (t.key)}
@@ -182,19 +212,13 @@
 
   .app {
     display: grid;
-    grid-template-columns: 200px 1fr;
-    grid-template-rows: auto 1fr;
+    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-rows: 52px minmax(0, 1fr);
+    grid-template-areas: "header header" "nav content";
     height: 100vh;
   }
-  .app.with-sheet {
-    grid-template-columns: 200px 1fr 380px;
-  }
-  .side {
-    grid-row: 2;
-    min-height: 0;
-  }
   header {
-    grid-column: 1 / -1;
+    grid-area: header;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -227,7 +251,27 @@
     background: #6fbf73;
     box-shadow: 0 0 8px #6fbf73;
   }
+  .sync {
+    font-size: 12px;
+    color: var(--gold);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 200px;
+  }
+  .sync-bar {
+    height: 3px;
+    background: var(--surface-2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .sync-bar div {
+    height: 100%;
+    background: var(--gold);
+    transition: width 0.2s;
+  }
   nav {
+    grid-area: nav;
     border-right: 1px solid var(--border);
     padding: 12px 8px;
     display: flex;
@@ -235,7 +279,20 @@
     gap: 2px;
     overflow-y: auto;
   }
+  .group {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    padding: 12px 10px 4px;
+  }
+  .group:first-child {
+    padding-top: 0;
+  }
   nav button {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
     text-align: left;
     background: none;
     border: none;
@@ -252,15 +309,25 @@
     background: var(--surface-2);
     color: var(--gold);
   }
-  .sep {
-    height: 1px;
-    background: var(--border);
-    margin: 8px 4px;
+  .count {
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  nav button.active .count {
+    color: var(--gold-dim);
+  }
+  .content {
+    grid-area: content;
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
   }
   main {
+    position: absolute;
+    inset: 0;
     overflow-y: auto;
     padding: 20px 28px;
-    position: relative;
   }
   main.full {
     padding: 0;
@@ -273,7 +340,24 @@
     border-radius: 6px;
     margin-bottom: 16px;
   }
+  .drawer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(420px, 92%);
+    z-index: 1500;
+    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.55);
+    animation: drawer 0.18s ease-out;
+  }
+  @keyframes drawer {
+    from {
+      transform: translateX(24px);
+      opacity: 0;
+    }
+  }
   .toasts {
+    z-index: 2000;
     position: fixed;
     right: 16px;
     bottom: 16px;

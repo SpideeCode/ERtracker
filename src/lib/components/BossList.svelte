@@ -1,7 +1,8 @@
 <script lang="ts">
   import { db, tracker } from "$lib/tracker.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
-  import { formatDistance } from "$lib/route";
+  import { formatDistance, heading } from "$lib/route";
+  import { mapdata } from "$lib/mapdata.svelte";
   import { ui } from "$lib/ui.svelte";
 
   let filter = $state<"todo" | "done" | "all">("todo");
@@ -18,8 +19,10 @@
       .map((e) => {
         const pos = gamedata.positions.get(e.id);
         const sheet = gamedata.bosses.get(e.id);
-        const distance = me && pos && pos.map === me.map ? Math.hypot(pos.x - me.x, pos.y - me.y) : null;
-        return { e, name: gamedata.name(e), region: gamedata.region(e) ?? "", sheet, distance, done: tracker.completed.has(e.id) };
+        const near = me && pos && pos.map === me.map;
+        const distance = near ? Math.hypot(pos.x - me.x, pos.y - me.y) : null;
+        const direction = near ? heading(pos.x - me.x, pos.y - me.y) : null;
+        return { e, name: gamedata.name(e), region: gamedata.region(e) ?? "", sheet, distance, direction, done: tracker.completed.has(e.id) };
       })
       .filter((r) => (filter === "todo" ? !r.done : filter === "done" ? r.done : true))
       .filter((r) => !legendaryOnly || r.sheet?.legendary)
@@ -40,7 +43,9 @@
   <span class="muted">{defeated} / {total.length} vaincus</span>
 </header>
 
-{#if !gamedata.loaded}
+{#if mapdata.running}
+  <p class="notice">Mise à jour des données du jeu ({mapdata.percent} %) : noms en français, positions et fiches arrivent…</p>
+{:else if !gamedata.loaded}
   <p class="notice">
     Prépare les cartes (onglet <button class="link" onclick={() => (ui.view = { kind: "map" })}>Carte</button>) pour avoir
     les positions, les itinéraires, les noms en français et les défenses de chaque boss.
@@ -66,7 +71,7 @@
   <tbody>
     {#each rows as r (r.e.id)}
       <tr class:done={r.done} class:selected={ui.sheet === r.e.id} onclick={() => ui.openSheet(r.e.id)}>
-        <td class="state">{r.done ? "✓" : ""}</td>
+        <td class="state"><span class="box" class:checked={r.done}>{r.done ? "✓" : ""}</span></td>
         <td>
           <div class="name">
             {r.name}
@@ -75,7 +80,12 @@
           <div class="muted small">{r.region}</div>
         </td>
         <td class="num muted">{r.sheet?.runes ? `${r.sheet.runes.toLocaleString("fr-FR")} runes` : ""}</td>
-        <td class="num">{r.distance !== null ? formatDistance(r.distance) : ""}</td>
+        <td class="num">
+          {#if r.distance !== null}
+            {formatDistance(r.distance)}
+            <div class="muted small">{r.direction}</div>
+          {/if}
+        </td>
       </tr>
     {:else}
       <tr><td class="muted" colspan="4">Aucun boss avec ces filtres.</td></tr>
@@ -149,8 +159,24 @@
     vertical-align: middle;
   }
   .state {
-    width: 18px;
-    color: #5fae6a;
+    width: 22px;
+  }
+  .box {
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    color: var(--bg);
+  }
+  .box.checked {
+    background: #5fae6a;
+    border-color: #5fae6a;
+  }
+  tr.selected {
+    box-shadow: inset 3px 0 0 var(--gold);
   }
   .num {
     text-align: right;
