@@ -4,7 +4,8 @@
   import "leaflet/dist/leaflet.css";
   import { db, tracker } from "$lib/tracker.svelte";
   import { assetBase, gamedata } from "$lib/gamedata.svelte";
-  import { DUNGEON_ICONS, planRoute } from "$lib/route";
+  import { DUNGEON_ICONS, formatDistance, planRoute } from "$lib/route";
+  import { walkPath } from "$lib/pathfind";
   import { ui } from "$lib/ui.svelte";
   import { ITEM_CATEGORIES, categoryById, pickupCategory, pickupTitle } from "$lib/items";
   import type { Entry, MapId, MapInfo, MarkerPos } from "$lib/types";
@@ -170,7 +171,7 @@
       current = target.map;
       centered = true;
       ui.sheet = id;
-      drawRoute(target);
+      drawRoute(id, target);
       map.setView(toLatLng(target.x, target.y), 5.5);
       keepClearOfSheet();
       ui.focus = null;
@@ -187,7 +188,7 @@
       centered = true;
       if (fly.route) {
         const target = gamedata.positions.get(fly.route);
-        if (target) drawRoute(target);
+        if (target) drawRoute(fly.route, target);
       }
       highlightLayer.clearLayers().addTo(map);
       const at = toLatLng(fly.x, fly.y);
@@ -207,22 +208,26 @@
     if (ui.sheet) map.panBy([Math.min(210, el.clientWidth * 0.23), 0], { animate: false });
   }
 
-  function drawRoute(target: MarkerPos) {
+  let routeToken = 0;
+
+  /** Walking route from the chosen start (see RouteCard) to a target, over the terrain data. */
+  async function drawRoute(id: string, target: MarkerPos) {
+    const token = ++routeToken;
     routeLayer.clearLayers();
-    const plan = planRoute(target, gamedata.positions, tracker.completed, gamedata.places, (e) => gamedata.name(e));
-    if (plan.path.length < 2) return;
-    const points = plan.path.map((p) => toLatLng(p.x, p.y));
-    L.polyline(points, { color: "#5ab0ff", weight: 3, dashArray: "8 8", interactive: false }).addTo(routeLayer);
-    const label = (at: L.LatLng, text: string) =>
-      L.tooltip({ permanent: true, direction: "right", className: "route-label", offset: [10, 0] })
-        .setLatLng(at)
-        .setContent(text)
-        .addTo(routeLayer);
-    if (plan.warp) {
-      L.circleMarker(points[0], { radius: 9, color: "#5ab0ff", weight: 2, fill: false, interactive: false }).addTo(routeLayer);
-      label(points[0], `① ${gamedata.name(plan.warp.grace)}`);
-    }
-    if (plan.gate) {
+    const plan = planRoute(target, gamedata.positions, tracker.completed, gamedata.places, (e) => gamedata.name(e), {
+      goal: "la cible",
+      exclude: id.startsWith("grace:") ? id : undefined,
+    });
+    const chosen = ui.routeStart[id];
+    const me = tracker.snapshot?.map_position;
+    const startPos =
+      chosen === "me" && me?.map === target.map ? me : chosen ? gamedata.positions.get(chosen) : plan.warp?.pos;
+    const startName =
+      chosen === "me" ? "Ma position" : chosen ? gamedata.name(db.entries.find((e) => e.id === chosen)!) : plan.warp ? gamedata.name(plan.warp.grace) : null;
+    const label = (at: L.LatLng, text: string, cls = "route-label") =>
+      L.tooltip({ permanent: true, direction: "right", className: cls, offset: [10, 0] }).setLatLng(at).setContent(text).addTo(routeLayer);
+
+    if (plan.gate && !chosen) {
       const at = toLatLng(plan.gate.pos.x, plan.gate.pos.y);
       L.circleMarker(at, { radius: 9, color: "#d39b45", weight: 3, fill: false, interactive: false }).addTo(routeLayer);
       label(at, `À débloquer : ${gamedata.name(plan.gate.grace)}`);
@@ -231,6 +236,22 @@
       const at = toLatLng(plan.entrance.x, plan.entrance.y);
       L.marker(at, { icon: L.divIcon({ className: "entrance-icon", iconSize: [16, 16] }), interactive: false }).addTo(routeLayer);
       label(at, `Entrée : ${plan.entrance.name.fr ?? plan.entrance.name.en}`);
+    }
+    if (!startPos || startPos.map !== target.map) return;
+    const from = toLatLng(startPos.x, startPos.y);
+    L.circleMarker(from, { radius: 9, color: "#5ab0ff", weight: 2, fill: false, interactive: false }).addTo(routeLayer);
+    if (startName) label(from, `Départ : ${startName}`);
+
+    const walk = await walkPath(target.map, startPos, target);
+    if (token !== routeToken) return;
+    if (walk.found) {
+      const line = walk.points.map(([x, y]) => toLatLng(x, y));
+      L.polyline(line, { color: "#0b1a2a", weight: 7, opacity: 0.6, interactive: false }).addTo(routeLayer);
+      L.polyline(line, { color: "#5ab0ff", weight: 4, interactive: false }).addTo(routeLayer);
+      label(toLatLng(target.x, target.y), `${formatDistance(walk.length)} · ↑${Math.round(walk.ascent)} m ↓${Math.round(walk.descent)} m`);
+    } else {
+      const points = (plan.path.length >= 2 ? [startPos, ...plan.path.slice(1)] : [startPos, target]).map((p) => toLatLng(p.x, p.y));
+      L.polyline(points, { color: "#5ab0ff", weight: 3, dashArray: "8 8", interactive: false }).addTo(routeLayer);
     }
   }
 

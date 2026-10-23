@@ -89,6 +89,7 @@ pub fn start_extraction(app: &AppHandle, game_dir: PathBuf) -> Result<(), String
         });
         *PROJECTOR.lock().unwrap() = None;
         *ITEM_FLAGS.lock().unwrap() = None;
+        *GRAPH.lock().unwrap() = None;
         *RUNNING.lock().unwrap() = false;
         emit(ProgressEvent { step: "done".into(), done: 1, total: 1, error: result.err(), finished: true });
     });
@@ -122,6 +123,16 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
 
 static PROJECTOR: Mutex<Option<std::sync::Arc<Projector>>> = Mutex::new(None);
 static ITEM_FLAGS: Mutex<Option<std::sync::Arc<Vec<u32>>>> = Mutex::new(None);
+static GRAPH: Mutex<Option<std::sync::Arc<crate::pathfind::Graph>>> = Mutex::new(None);
+
+/// Route-finding graph, loaded on first use.
+pub fn graph() -> Option<std::sync::Arc<crate::pathfind::Graph>> {
+    let mut cached = GRAPH.lock().unwrap();
+    if cached.is_none() {
+        *cached = crate::pathfind::Graph::load(DIR.get()?).map(std::sync::Arc::new);
+    }
+    cached.clone()
+}
 
 /// Pickup flags from the extracted items.json (empty until maps are prepared).
 pub fn item_flags() -> std::sync::Arc<Vec<u32>> {

@@ -78,6 +78,22 @@ pub fn treasures(d: &[u8]) -> Result<Vec<Treasure>> {
     Ok(out)
 }
 
+/// Positions of every part, with its type (0 map piece, 2 enemy, 4 player, 5 collision,
+/// 9 dummy asset, 10 dummy enemy, 11 connect collision, 13 asset).
+pub fn part_positions(d: &[u8]) -> Result<Vec<(i32, [f32; 3])>> {
+    if !d.starts_with(b"MSB ") {
+        return Err(ExtractError::new("not an MSB"));
+    }
+    let lists = param_lists(d)?;
+    let Some(parts) = lists.get(5) else {
+        return Ok(Vec::new());
+    };
+    parts
+        .iter()
+        .map(|&p| Ok((i32_at(d, p + 0x0C)?, [f32_at(d, p + 0x20)?, f32_at(d, p + 0x24)?, f32_at(d, p + 0x28)?])))
+        .collect()
+}
+
 pub fn enemies(d: &[u8]) -> Result<Vec<Enemy>> {
     if !d.starts_with(b"MSB ") {
         return Err(ExtractError::new("not an MSB"));

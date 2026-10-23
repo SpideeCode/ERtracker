@@ -25,6 +25,9 @@ class Ui {
   /** Entry the map should centre on and draw a route to. */
   focus = $state<string | null>(null);
   flyTo = $state<FlyTarget | null>(null);
+  /** Chosen starting point per route target: a grace id, or "me" for the last saved position. */
+  routeStart = $state<Record<string, string>>({});
+
   /** Quest to unfold when the quests view opens. */
   questOpen = $state<string | null>(null);
 

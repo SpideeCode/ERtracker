@@ -5,6 +5,7 @@
   import { gamedata } from "$lib/gamedata.svelte";
   import { formatClimb, formatDistance, heading, nearestGraces, planRoute } from "$lib/route";
   import { ui } from "$lib/ui.svelte";
+  import { walkPath, type WalkPath } from "$lib/pathfind";
   import type { MarkerPos } from "$lib/types";
 
   let {
@@ -30,6 +31,35 @@
   const others = $derived(nearestGraces(pos, gamedata.positions, tracker.completed, 5).filter((g) => g.grace.id !== id).slice(0, 4));
 
   const me = $derived(tracker.snapshot?.map_position);
+
+  // Starting point of the walking route: any grace of this map (discovered or not) or the last save.
+  const startOptions = $derived(
+    nearestGraces(pos, gamedata.positions, tracker.completed, 25).filter((g) => g.grace.id !== id),
+  );
+  const defaultStart = $derived(plan.warp?.grace.id ?? startOptions[0]?.grace.id ?? "");
+  let chosen = $state<string | null>(null);
+  const start = $derived(chosen ?? ui.routeStart[id] ?? defaultStart);
+  const startPos = $derived(
+    start === "me"
+      ? me && me.map === pos.map
+        ? me
+        : undefined
+      : gamedata.positions.get(start),
+  );
+  let walk = $state<WalkPath | null>(null);
+  $effect(() => {
+    const from = startPos;
+    walk = null;
+    if (!from) return;
+    let current = true;
+    walkPath(pos.map, from, pos).then((w) => current && (walk = w));
+    return () => (current = false);
+  });
+
+  function showRoute() {
+    ui.routeStart = { ...ui.routeStart, [id]: start };
+    ui.showOnMap(id);
+  }
   const fromMe = $derived(
     me && me.map === pos.map ? { distance: Math.hypot(pos.x - me.x, pos.y - me.y), direction: heading(pos.x - me.x, pos.y - me.y) } : null,
   );
@@ -71,7 +101,30 @@
   {#if help}
     <button class="secondary" onclick={() => openUrl(help.url)}>{help.label} ↗</button>
   {/if}
-  <button class="primary" onclick={() => ui.showOnMap(id)}>Afficher l'itinéraire sur la carte</button>
+  <div class="walk">
+    <label>
+      Partir de
+      <select value={start} onchange={(e) => (chosen = e.currentTarget.value)}>
+        {#if me && me.map === pos.map}<option value="me">Ma position (dernière sauvegarde)</option>{/if}
+        {#each startOptions as g (g.grace.id)}
+          <option value={g.grace.id}>{g.discovered ? "✓ " : ""}{gamedata.name(g.grace)} — {formatDistance(g.distance)}</option>
+        {/each}
+      </select>
+    </label>
+    {#if !startPos}
+      <p class="muted small">Choisis un point de départ sur la même carte.</p>
+    {:else if !walk}
+      <p class="muted small">Calcul du trajet…</p>
+    {:else if walk.found}
+      <p>
+        Trajet à pied : <strong>{formatDistance(walk.length)}</strong>
+        <span class="muted">· ↑ {Math.round(walk.ascent)} m · ↓ {Math.round(walk.descent)} m</span>
+      </p>
+    {:else}
+      <p class="muted small">Pas de chemin trouvé dans les données du terrain (ascenseur, échelle ou zone à part) : la carte montrera la direction à vol d'oiseau.</p>
+    {/if}
+  </div>
+  <button class="primary" onclick={showRoute}>Afficher l'itinéraire sur la carte</button>
 
   <details>
     <summary>Grâces les plus proches</summary>
@@ -162,6 +215,24 @@
   .graces .place {
     font-weight: 400;
     color: inherit;
+  }
+  .walk {
+    border-top: 1px solid var(--border);
+    margin-top: 6px;
+    padding-top: 10px;
+  }
+  .walk label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .walk select {
+    width: 100%;
+  }
+  .walk p {
+    margin: 8px 0;
   }
   .primary {
     width: 100%;

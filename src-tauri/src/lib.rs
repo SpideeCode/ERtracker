@@ -1,5 +1,6 @@
 pub mod extract;
 mod maps;
+pub mod pathfind;
 pub mod paths;
 pub mod progress;
 pub mod save;
@@ -68,6 +69,17 @@ fn set_runes(state: State<TrackerState>, slot: usize, value: u32) -> Result<save
     save::write_runes(&path, slot, value).map_err(|e| e.to_string())
 }
 
+/// Walking route between two points of a map, over the extracted ground samples.
+#[tauri::command]
+async fn find_path(map: String, from: pathfind::Point, to: pathfind::Point) -> Result<pathfind::PathResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let graph = maps::graph().ok_or("données de chemins absentes : mets à jour les cartes")?;
+        Ok(graph.find(&map, from, to))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -79,7 +91,7 @@ pub fn run() {
             app.manage::<TrackerState>(std::sync::Mutex::new(Tracker::new(config)));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![list_saves, find_game_dir, load_state, select, map_status, extract_maps, game_running, set_runes])
+        .invoke_handler(tauri::generate_handler![list_saves, find_game_dir, load_state, select, map_status, extract_maps, game_running, set_runes, find_path])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

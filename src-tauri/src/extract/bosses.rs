@@ -70,6 +70,8 @@ pub struct Extracted {
     pub placements: Vec<BossPlacement>,
     /// Every treasure event, as (map name, treasure): read in the same pass over the maps.
     pub treasures: Vec<(String, msb::Treasure)>,
+    /// Positions of enemies and assets, as (map name, position): ground the player can stand on.
+    pub ground: Vec<(String, [f32; 3])>,
 }
 
 pub fn extract(
@@ -95,6 +97,7 @@ pub fn extract(
     // (base maps are listed before their _99 variants).
     let mut found: HashMap<u32, (String, i32, [f32; 3])> = HashMap::new();
     let mut treasures = Vec::new();
+    let mut ground = Vec::new();
     let archives: Vec<(Archive, Vec<(String, String)>)> = ["Data2", "DLC"]
         .iter()
         .map(|name| {
@@ -109,6 +112,15 @@ pub fn extract(
         for (map, path) in paths {
             let raw = dcx::decompress(&archive.read(path)?)?;
             treasures.extend(msb::treasures(&raw)?.into_iter().map(|t| (map.clone(), t)));
+            // Enemies, player spawns and assets sit on walkable ground; "_99" maps are world-state variants.
+            if !map.ends_with("_99") {
+                ground.extend(
+                    msb::part_positions(&raw)?
+                        .into_iter()
+                        .filter(|(kind, _)| matches!(kind, 2 | 4 | 9 | 10 | 13))
+                        .map(|(_, p)| (map.clone(), p)),
+                );
+            }
             for e in msb::enemies(&raw)? {
                 if flags.contains(&e.entity_id) && !found.contains_key(&e.entity_id) {
                     found.insert(e.entity_id, (map.clone(), e.npc_param, e.pos));
@@ -167,7 +179,7 @@ pub fn extract(
             .filter(|a| !placed.contains(&a.flag))
             .map(|a| BossPlacement { flag: a.flag, block: a.pos.block(), pos: a.pos }),
     );
-    Ok(Extracted { bosses, placements, treasures })
+    Ok(Extracted { bosses, placements, treasures, ground })
 }
 
 /// Lower-cased English text -> French text, for tables sharing ids.

@@ -13,6 +13,7 @@ pub mod oodle;
 pub mod param;
 pub mod regulation;
 pub mod tiles;
+pub mod walkable;
 pub mod world;
 pub mod build;
 
