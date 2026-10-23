@@ -4,6 +4,7 @@
   import { gamedata } from "$lib/gamedata.svelte";
   import { mapdata } from "$lib/mapdata.svelte";
   import RouteCard from "./RouteCard.svelte";
+  import AccessCard from "./AccessCard.svelte";
 
   let { id }: { id: string } = $props();
 
@@ -70,6 +71,8 @@
     {mapdata.running ? "Mise à jour des données du jeu en cours…" : "Prépare les cartes (onglet Carte) pour voir l'itinéraire et les défenses."}
   </p>
 {/if}
+
+<AccessCard {entry} />
 
 {#if pos}
   <RouteCard {id} {pos} goal="le boss" />

@@ -4,6 +4,7 @@
   import { formatDistance, heading } from "$lib/route";
   import { mapdata } from "$lib/mapdata.svelte";
   import { ui } from "$lib/ui.svelte";
+  import { locked } from "$lib/accessCheck.svelte";
 
   let filter = $state<"todo" | "done" | "all">("todo");
   let sort = $state<"near" | "region" | "runes">("near");
@@ -76,6 +77,7 @@
           <div class="name">
             {r.name}
             {#if r.sheet?.legendary}<span class="legend" title="Boss légendaire">★</span>{/if}
+            {#if !r.done && locked(r.e)}<span class="lock" title="Accès à débloquer (voir la fiche)">🔒</span>{/if}
           </div>
           <div class="muted small">{r.region}</div>
         </td>
@@ -184,6 +186,10 @@
     font-variant-numeric: tabular-nums;
   }
   .small {
+    font-size: 12px;
+  }
+  .lock {
+    margin-left: 4px;
     font-size: 12px;
   }
   .legend {

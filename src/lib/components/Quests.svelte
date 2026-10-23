@@ -1,8 +1,15 @@
 <script lang="ts">
   import { db, tracker } from "$lib/tracker.svelte";
+  import { ui } from "$lib/ui.svelte";
 
   let search = $state("");
   let openId = $state<string | null>(null);
+  $effect(() => {
+    if (ui.questOpen) {
+      openId = ui.questOpen;
+      ui.questOpen = null;
+    }
+  });
 
   /** Index of the furthest step whose flags all match, or -1 when the quest has not started. */
   function currentStep(questId: string, steps: number): number {

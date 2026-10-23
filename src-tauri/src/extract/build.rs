@@ -73,7 +73,7 @@ struct Place {
     pos: MapPos,
 }
 
-pub const FORMAT: u32 = 5;
+pub const FORMAT: u32 = 6;
 pub const LEGACY_CONV_FILE: &str = "legacy_conv.param";
 
 pub fn game_build(game: &Path) -> String {

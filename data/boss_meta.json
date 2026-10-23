@@ -26,5 +26,116 @@
     "Metyr, Mother of Fingers": "Remembrance of the Mother of Fingers",
     "Scadutree Avatar": "Remembrance of the Shadow Sunflower",
     "Promised Consort Radahn": "Remembrance of a God and a Lord"
+  },
+  "_access_comment": "Access conditions not readable from the game data. Keys: boss names (bosses) or region names (regions), as in db.json. Conditions: text (French), quest (db quest id, progress shown), items (English key item names, checked in the inventory), greatRunes (count), afterBosses (English boss names that must be defeated).",
+  "access": {
+    "regions": {
+      "Mountaintops of the Giants": {
+        "text": "Les Cimes des Géants s'ouvrent avec le Médaillon de Rold, obtenu après avoir vaincu Morgott, à utiliser au Grand ascenseur de Rold.",
+        "items": [
+          "Rold Medallion"
+        ],
+        "afterBosses": [
+          "Morgott, the Omen King"
+        ]
+      },
+      "Flame Peak": {
+        "text": "Le Pic des flammes est au bout des Cimes des Géants : il faut le Médaillon de Rold (après Morgott).",
+        "items": [
+          "Rold Medallion"
+        ],
+        "afterBosses": [
+          "Morgott, the Omen King"
+        ]
+      },
+      "Consecrated Snowfield": {
+        "text": "Les Champs neigeux consacrés demandent les deux moitiés du médaillon secret de l'Arbre-Sacré (gauche : Albus, au Village des Albinauriques ; droite : château Sol), à utiliser au Grand ascenseur de Rold.",
+        "items": [
+          "Haligtree Secret Medallion (Left)",
+          "Haligtree Secret Medallion (Right)",
+          "Rold Medallion"
+        ]
+      },
+      "Miquella's Haligtree": {
+        "text": "L'Arbre-Sacré de Miquella se trouve au-delà des Champs neigeux consacrés : il faut les deux moitiés du médaillon secret de l'Arbre-Sacré.",
+        "items": [
+          "Haligtree Secret Medallion (Left)",
+          "Haligtree Secret Medallion (Right)"
+        ]
+      },
+      "Leyndell, Royal Capital": {
+        "text": "Il faut posséder 2 grandes runes pour franchir la porte de Leyndell.",
+        "greatRunes": 2
+      },
+      "Crumbling Farum Azula": {
+        "text": "Ferum Azula en ruine s'atteint après avoir vaincu le Géant de feu et allumé la Forge des Géants.",
+        "afterBosses": [
+          "Fire Giant"
+        ]
+      },
+      "Leyndell, Capital of Ash": {
+        "text": "Leyndell, capitale des cendres n'apparaît qu'après avoir vaincu Maliketh à Ferum Azula.",
+        "afterBosses": [
+          "Maliketh, the Black Blade"
+        ]
+      },
+      "Enir-Ilim": {
+        "text": "Enir-Ilim s'ouvre après avoir vaincu Messmer et brûlé l'épine de l'Arbre-Scellé avec l'objet qu'il laisse.",
+        "afterBosses": [
+          "Messmer the Impaler"
+        ]
+      }
+    },
+    "bosses": {
+      "Mohg, Lord of Blood": {
+        "text": "Le Palais de Mohgwyn s'atteint avec la Médaille du chevalier du sang pur, donnée pendant la quête de Varré au masque blanc, ou par un portail caché dans les Champs neigeux consacrés.",
+        "quest": "quest:white_mask_varre",
+        "items": [
+          "Pureblood Knight's Medal"
+        ]
+      },
+      "Astel, Naturalborn of the Void": {
+        "text": "Le Grand cloître (au-delà du Lac de putréfaction) n'est accessible qu'en avançant dans la quête de Ranni la sorcière.",
+        "quest": "quest:ranni_the_witch"
+      },
+      "Lichdragon Fortissax": {
+        "text": "Combat déclenché à la fin de la quête de Fia, au Trône du prince de la Mort : il faut lui avoir remis la Marque maudite de la mort (quête de Ranni).",
+        "quest": "quest:fia",
+        "items": [
+          "Cursemark of Death"
+        ]
+      },
+      "Fia's Champions": {
+        "text": "Liés à la quête de Fia, au Trône du prince de la Mort (Profondeurs des racines).",
+        "quest": "quest:fia"
+      },
+      "Regal Ancestor Spirit": {
+        "text": "Nokron, la cité éternelle, s'ouvre seulement après avoir vaincu Radahn le Fléau des astres : une étoile tombe et ouvre le passage.",
+        "afterBosses": [
+          "Starscourge Radahn"
+        ]
+      },
+      "Mimic Tear": {
+        "text": "Dans Nokron, qui s'ouvre seulement après avoir vaincu Radahn le Fléau des astres.",
+        "afterBosses": [
+          "Starscourge Radahn"
+        ]
+      },
+      "Valiant Gargoyles": {
+        "text": "Dans Nokron / l'Aqueduc de Siofra, accessibles seulement après avoir vaincu Radahn le Fléau des astres.",
+        "afterBosses": [
+          "Starscourge Radahn"
+        ]
+      },
+      "Metyr, Mother of Fingers": {
+        "text": "Accessible uniquement par la quête du comte Ymir (Cathédrale de Manus Metyr) : suis ses demandes jusqu'à ce qu'il t'ouvre le passage vers Metyr."
+      },
+      "Count Ymir, Mother of Fingers": {
+        "text": "Combat à la fin de la quête du comte Ymir (Cathédrale de Manus Metyr)."
+      },
+      "Dragonlord Placidusax": {
+        "text": "Caché dans Ferum Azula en ruine : son arène s'atteint par un passage dérobé, pas par le chemin principal."
+      }
+    }
   }
 }

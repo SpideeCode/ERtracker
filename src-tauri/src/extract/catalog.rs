@@ -106,8 +106,8 @@ struct Simple {
     info: Option<Text>,
 }
 
-/// Goods kept in the catalogue: spells, spirit ashes, physick tears.
-const GOODS_TYPES: [u8; 7] = [5, 7, 8, 10, 16, 17, 18];
+/// Goods kept in the catalogue: key items, spells, spirit ashes, physick tears.
+const GOODS_TYPES: [u8; 8] = [1, 5, 7, 8, 10, 16, 17, 18];
 
 struct Texts<'a> {
     en: &'a HashMap<String, Fmg>,
@@ -267,6 +267,18 @@ pub fn extract(params: &HashMap<String, Vec<u8>>, en: &HashMap<String, Fmg>, fr:
         })
         .collect();
 
+    // Items named in the access conditions are kept whatever their type (some are consumables).
+    let meta: serde_json::Value = serde_json::from_str(include_str!("../../../data/boss_meta.json")).unwrap_or_default();
+    let access_items: std::collections::HashSet<String> = meta["access"]
+        .as_object()
+        .into_iter()
+        .flat_map(|groups| groups.values())
+        .filter_map(|g| g.as_object())
+        .flat_map(|rules| rules.values())
+        .filter_map(|r| r["items"].as_array())
+        .flatten()
+        .filter_map(|i| i.as_str().map(str::to_string))
+        .collect();
     let goods_p = Rows::new(params, "EquipParamGoods")?;
     let magic = Rows::new(params, "Magic")?;
     let goods = goods_p
@@ -275,7 +287,9 @@ pub fn extract(params: &HashMap<String, Vec<u8>>, en: &HashMap<String, Fmg>, fr:
         .filter_map(|&id| {
             let d = goods_p.get(id)?;
             let goods_type = u8_(d, 0x3e);
-            if !GOODS_TYPES.contains(&goods_type) {
+            let wanted = GOODS_TYPES.contains(&goods_type)
+                || en.get("GoodsName").and_then(|t| t.get(&id)).is_some_and(|n| access_items.contains(n));
+            if !wanted {
                 return None;
             }
             Some(Goods {

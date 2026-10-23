@@ -25,6 +25,13 @@ class Ui {
   /** Entry the map should centre on and draw a route to. */
   focus = $state<string | null>(null);
   flyTo = $state<FlyTarget | null>(null);
+  /** Quest to unfold when the quests view opens. */
+  questOpen = $state<string | null>(null);
+
+  openQuest(id: string) {
+    this.questOpen = id;
+    this.view = { kind: "quests" };
+  }
 
   openSheet(id: string) {
     this.sheet = id;
