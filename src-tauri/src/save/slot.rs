@@ -31,6 +31,9 @@ pub struct SlotInfo {
     pub position: Option<Position>,
     /// Vigor, mind, endurance, strength, dexterity, intelligence, faith, arcane.
     pub stats: [u32; 8],
+    /// Runes held, and where that u32 lives in the slot data.
+    pub runes: u32,
+    pub runes_offset: usize,
     /// Item ids held or in the storage chest, with the category in the top nibble
     /// (0 weapon, 1 armour, 2 talisman, 4 goods, 8 ash of war). Weapon ids carry
     /// their affinity and upgrade level in the low digits.
@@ -111,6 +114,8 @@ pub fn parse(data: &[u8]) -> Result<Option<SlotInfo>> {
     let pgd = r.pos;
     let level = Reader::at(data, pgd + 0x60).u32()?;
     let name = Reader::at(data, pgd + 0x94).wstr(16)?;
+    let runes_offset = pgd + 0x64;
+    let runes = Reader::at(data, runes_offset).u32()?;
     let mut stats = [0u32; 8];
     for (i, s) in stats.iter_mut().enumerate() {
         *s = Reader::at(data, pgd + 0x34 + i * 4).u32()?;
@@ -167,5 +172,5 @@ pub fn parse(data: &[u8]) -> Result<Option<SlotInfo>> {
     })()
     .ok();
 
-    Ok(Some(SlotInfo { version, name, level, flags_offset, position, stats, inventory }))
+    Ok(Some(SlotInfo { version, name, level, flags_offset, position, stats, runes, runes_offset, inventory }))
 }

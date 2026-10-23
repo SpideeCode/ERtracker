@@ -76,7 +76,7 @@ impl Tracker {
         self.save_config();
     }
 
-    fn save_path(&self) -> Option<PathBuf> {
+    pub fn save_path(&self) -> Option<PathBuf> {
         self.config
             .save_path
             .clone()

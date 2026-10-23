@@ -1,6 +1,6 @@
 # ERtracker
 
-Tracker de progression Elden Ring (jeu de base + Shadow of the Erdtree) pour PC. Il lit le fichier de sauvegarde (`ER0000.sl2`) et se met à jour à chaque sauvegarde auto du jeu. Il ne lit que le fichier sur le disque : pas de lecture mémoire, pas d'injection, rien n'est écrit.
+Tracker de progression Elden Ring (jeu de base + Shadow of the Erdtree) pour PC. Il lit le fichier de sauvegarde (`ER0000.sl2`) et se met à jour à chaque sauvegarde auto du jeu. Il ne lit que le fichier sur le disque : pas de lecture mémoire, pas d'injection. La seule écriture possible est l'outil « Runes » (optionnel, jeu fermé, copie de secours automatique, MD5 du slot recalculé).
 
 Voir [PLAN.md](PLAN.md) pour l'architecture et la roadmap.
 

@@ -50,6 +50,24 @@ pub fn find_saves() -> Vec<SaveLocation> {
     saves
 }
 
+/// True while Elden Ring (or its Easy Anti-Cheat launcher) is running.
+pub fn game_running() -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let output = std::process::Command::new("tasklist")
+            .args(["/FO", "CSV", "/NH"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+        if let Ok(out) = output {
+            let list = String::from_utf8_lossy(&out.stdout).to_lowercase();
+            return list.contains("\"eldenring.exe\"") || list.contains("\"start_protected_game.exe\"");
+        }
+    }
+    false
+}
+
 pub fn is_game_dir(dir: &Path) -> bool {
     dir.join("Game").join("eldenring.exe").is_file()
 }

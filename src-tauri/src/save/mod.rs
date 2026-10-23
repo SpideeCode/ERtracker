@@ -45,8 +45,14 @@ pub struct Character {
     pub position: Option<Position>,
     pub stats: [u32; 8],
     pub inventory: Vec<u32>,
+    pub runes: u32,
+    /// Absolute offset of the held runes (u32, little-endian) in the save file.
+    pub runes_offset: usize,
     #[serde(skip)]
     flags: Range<usize>,
+    /// Absolute range of the slot data covered by the MD5 stored just before it.
+    #[serde(skip)]
+    body: Range<usize>,
 }
 
 pub struct SaveFile {
@@ -110,6 +116,9 @@ impl SaveFile {
                 checksum_ok,
                 position: info.position,
                 stats: info.stats,
+                runes: info.runes,
+                runes_offset: body_start + info.runes_offset,
+                body: body_start..body_start + slot::SLOT_SIZE,
                 inventory: info.inventory,
                 flags: flags_start..flags_start + event_flags::EVENT_FLAGS_SIZE,
             });
@@ -144,4 +153,53 @@ fn profile_summary(entry: &[u8]) -> Result<[(bool, u32); 10]> {
         *slot = (active, seconds);
     }
     Ok(out)
+}
+
+/// Highest rune count the game displays.
+pub const MAX_RUNES: u32 = 999_999_999;
+
+#[derive(Serialize)]
+pub struct RuneEdit {
+    pub backup: std::path::PathBuf,
+    pub offset: usize,
+    pub before: u32,
+    pub after: u32,
+}
+
+/// Sets the held runes of a character in a save file, after copying the file to
+/// a timestamped backup. The slot's MD5 is recomputed so the game accepts it.
+/// The game must not be running: it would overwrite the file at its next save.
+pub fn write_runes(path: &Path, slot: usize, value: u32) -> Result<RuneEdit> {
+    let value = value.min(MAX_RUNES);
+    let save = SaveFile::load(path)?;
+    let character = save.character(slot).ok_or_else(|| SaveError::new(format!("no character in slot {slot}")))?;
+    if !character.checksum_ok {
+        return Err(SaveError::new("the save is being written by the game: close it first"));
+    }
+    let (offset, body, before) = (character.runes_offset, character.body.clone(), character.runes);
+
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    let backup = path.with_file_name(format!(
+        "{}.ertracker-{stamp}.bak",
+        path.file_name().and_then(|n| n.to_str()).unwrap_or("ER0000.sl2")
+    ));
+    std::fs::copy(path, &backup).map_err(|e| SaveError::new(format!("backup failed, nothing was changed: {e}")))?;
+
+    let mut data = save.data;
+    data[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+    let digest = Md5::digest(&data[body.clone()]);
+    data[body.start - MD5_SIZE..body.start].copy_from_slice(&digest);
+
+    // Write next to the save, then swap, so a crash never leaves a half-written file.
+    let tmp = path.with_extension("ertracker-tmp");
+    std::fs::write(&tmp, &data).map_err(|e| SaveError::new(format!("cannot write: {e}")))?;
+    std::fs::rename(&tmp, path).map_err(|e| SaveError::new(format!("cannot replace the save: {e}")))?;
+
+    let check = SaveFile::load(path)?;
+    let after = check.character(slot).map(|c| (c.runes, c.checksum_ok));
+    if after != Some((value, true)) {
+        std::fs::copy(&backup, path).map_err(|e| SaveError::new(format!("verification failed and restore failed: {e}")))?;
+        return Err(SaveError::new("verification failed: the backup was restored"));
+    }
+    Ok(RuneEdit { backup, offset, before, after: value })
 }

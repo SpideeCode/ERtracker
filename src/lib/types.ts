@@ -45,6 +45,9 @@ export interface Character {
   stats: number[];
   /** Owned item ids, category in the top nibble (0 weapon, 1 armour, 2 talisman, 4 goods, 8 ash of war). */
   inventory: number[];
+  runes: number;
+  /** Absolute offset of the held runes (u32 LE) in the save file. */
+  runes_offset: number;
   name: string;
   level: number;
   seconds_played: number;

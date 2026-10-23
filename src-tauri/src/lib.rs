@@ -53,6 +53,21 @@ fn extract_maps(app: AppHandle, game_dir: PathBuf) -> Result<(), String> {
     maps::start_extraction(&app, game_dir)
 }
 
+#[tauri::command]
+fn game_running() -> bool {
+    paths::game_running()
+}
+
+/// Sets the held runes of a character in the selected save (game must be closed).
+#[tauri::command]
+fn set_runes(state: State<TrackerState>, slot: usize, value: u32) -> Result<save::RuneEdit, String> {
+    if paths::game_running() {
+        return Err("Elden Ring est lancé : ferme complètement le jeu avant de modifier la sauvegarde.".into());
+    }
+    let path = state.lock().unwrap().save_path().ok_or("aucune sauvegarde sélectionnée")?;
+    save::write_runes(&path, slot, value).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -64,7 +79,7 @@ pub fn run() {
             app.manage::<TrackerState>(std::sync::Mutex::new(Tracker::new(config)));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![list_saves, find_game_dir, load_state, select, map_status, extract_maps])
+        .invoke_handler(tauri::generate_handler![list_saves, find_game_dir, load_state, select, map_status, extract_maps, game_running, set_runes])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -11,6 +11,7 @@
   import ItemList from "$lib/components/ItemList.svelte";
   import GlobalSearch from "$lib/components/GlobalSearch.svelte";
   import Builds from "$lib/components/Builds.svelte";
+  import RuneEditor from "$lib/components/RuneEditor.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
   import { mapdata } from "$lib/mapdata.svelte";
   import { ui } from "$lib/ui.svelte";
@@ -129,6 +130,11 @@
     <button class:active={view.kind === "quests"} onclick={() => (ui.view = { kind: "quests" })}>
       <span>Quêtes PNJ</span>
     </button>
+
+    <div class="group">Outils</div>
+    <button class:active={view.kind === "runes"} onclick={() => (ui.view = { kind: "runes" })}>
+      <span>Runes</span>
+    </button>
   </nav>
 
   <div class="content">
@@ -154,6 +160,8 @@
         <ItemList />
       {:else if view.kind === "builds"}
         <Builds />
+      {:else if view.kind === "runes"}
+        <RuneEditor />
       {:else if view.kind === "quests"}
         <Quests />
       {:else if view.kind === "map"}
