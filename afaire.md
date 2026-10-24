@@ -1,1 +1,0 @@
-je trouve qu'il faut des illustrations, genre photo des boss ou des lieux etc t,en penses quoi, dans progrtession faut améliorer ui ux  ca doit etre + gameifié faut que ca donne envie d'avancer dans le jeu 
