@@ -315,3 +315,10 @@ L'app a grandi par ajouts successifs, et on s'y perdait. Le but est que l'essent
 - WebView2 (déjà intégré à Windows 11) ;
 - Python 3.12 (présent) pour le pipeline de données, avec Pillow ;
 - Accès aux fichiers du jeu installé, une seule fois, pour l'extraction des cartes et des données. Sur la machine de dev, le jeu est dans `C:\Games\ELDEN RING` (v1.17.0, archives `Data0-3.bdt` + `DLC.bdt` encore empaquetées : il faut les dépaqueter avec Smithbox ou UXM, ou implémenter le lecteur BHD5 + Oodle via `oo2core_6_win64.dll`, déjà présente dans le dossier du jeu).
+
+### Profil et builds calculés (2026-10-24)
+
+- **Profil joueur** (présentation et Réglages) : découverte (sans spoil), 100 % (restes, donjons ratés, quêtes en cours), NG+ ou nouveau build (Builds remonte dans le menu, carte « Ton build » sur l'accueil). Le cycle NG+ est lu dans la sauvegarde (drapeaux 50 à 57).
+- **Calcul de la puissance d'attaque comme le jeu** : variantes d'affinité de chaque arme, taux d'amélioration (ReinforceParamWeapon), courbes de scaling (CalcCorrectGraph), stats par type de dégâts (AttackElementCorrectParam), pénalité de prérequis, deux mains. Les cendres de guerre disent sur quels types d'armes et avec quelles affinités elles se montent.
+- **Builds** : mes meilleures armes avec ce que j'ai (pierres à aiguiser et cendres possédées), options à 1, 2 ou 3 objets avec où les trouver, armes à améliorer et coût, où mettre les prochains niveaux et renaissance, meilleurs builds du jeu par niveau et style. Filtre par type d'arme.
+- Pas encore pris en compte : saignement et autres effets, buffs, talismans, sorts (bâtons et sceaux exclus des classements).

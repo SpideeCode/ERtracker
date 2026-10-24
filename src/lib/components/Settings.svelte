@@ -6,6 +6,7 @@
   import { ui, type SettingsTab } from "$lib/ui.svelte";
   import OverlayPanel from "./OverlayPanel.svelte";
   import RuneEditor from "./RuneEditor.svelte";
+  import ProfilePicker from "./ProfilePicker.svelte";
 
   let { tab }: { tab: SettingsTab } = $props();
 
@@ -52,6 +53,11 @@
       </label>
     {/if}
     {#if snapshot}<p class="muted small">{snapshot.save_path}</p>{/if}
+  </section>
+
+  <section class="card">
+    <h3>Comment tu joues</h3>
+    <ProfilePicker />
   </section>
 
   <section class="card">

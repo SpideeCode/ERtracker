@@ -17,7 +17,7 @@
     return ids.length ? Math.round((done / ids.length) * 100) : 0;
   });
 
-  const items: { kind: View["kind"]; label: string; icon: typeof Compass; go: View }[] = [
+  const all: { kind: View["kind"]; label: string; icon: typeof Compass; go: View }[] = [
     { kind: "now", label: "Maintenant", icon: Compass, go: { kind: "now" } },
     { kind: "map", label: "Carte", icon: Map, go: { kind: "map" } },
     { kind: "progress", label: "Progression", icon: Trophy, go: { kind: "progress", tab: "bosses" } },
@@ -25,6 +25,12 @@
     { kind: "journey", label: "Mon aventure", icon: BookOpen, go: { kind: "journey" } },
     { kind: "builds", label: "Builds", icon: Swords, go: { kind: "builds" } },
   ];
+  // Players working on a build get it right after the map.
+  const items = $derived(
+    prefs.profile === "build"
+      ? [all[0], all[1], all[5], all[2], all[3], all[4]]
+      : all,
+  );
 
   function toggle() {
     prefs.sidebarCollapsed = !prefs.sidebarCollapsed;

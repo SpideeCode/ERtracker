@@ -31,6 +31,8 @@ pub struct Snapshot {
     pub map_position: Option<MapPos>,
     /// Milliseconds since the Unix epoch.
     pub loaded_at: u64,
+    /// Playthrough of the selected character: 0 for the first, 1 for NG+...
+    pub cycle: u8,
 }
 
 #[derive(Clone, Serialize)]
@@ -119,6 +121,8 @@ impl Tracker {
             completed: completed.iter().cloned().collect(),
             map_position: character.position.as_ref().and_then(maps::player_position),
             loaded_at: SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64),
+            // Event flags 50-57 mark the playthrough lap (NG, NG+1... NG+7).
+            cycle: (0..8u8).rev().find(|&i| save.flag(character, 50 + i as u32) == Some(true)).unwrap_or(0),
         };
         self.record(&path, character, &snapshot, &diff);
         self.last = Some((path, character.slot, completed));

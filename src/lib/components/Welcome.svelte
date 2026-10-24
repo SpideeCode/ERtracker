@@ -5,9 +5,10 @@
   import { mapdata } from "$lib/mapdata.svelte";
   import { prefs } from "$lib/prefs.svelte";
   import { playtime } from "$lib/labels";
+  import ProfilePicker from "./ProfilePicker.svelte";
 
   let step = $state(0);
-  const STEPS = 3;
+  const STEPS = 4;
 
   const character = $derived(tracker.character);
   const gameDir = $derived(mapdata.status?.game_dir ?? null);
@@ -19,7 +20,7 @@
     { icon: Trophy, name: "Progression", text: "boss, objets, grâces, quêtes et collections, coché depuis ta sauvegarde" },
     { icon: Telescope, name: "Explorer", text: "les zones où il te reste le plus à faire, sans spoil" },
     { icon: BookOpen, name: "Mon aventure", text: "tes sessions, tes morts par boss, ton trajet" },
-    { icon: Swords, name: "Builds", text: "les meilleures combinaisons pour un style, et le coût des améliorations" },
+    { icon: Swords, name: "Builds", text: "tes meilleures armes, ce qui les améliorerait, les builds les plus puissants" },
   ];
 
   function done() {
@@ -61,6 +62,10 @@
       </ul>
       <p class="muted small">Rien n'est envoyé sur Internet, et le jeu n'est jamais modifié pendant que tu joues.</p>
     {:else if step === 1}
+      <h2 id="welcome-title">Comment tu joues ?</h2>
+      <p>L'accueil et le menu s'adaptent. Tu pourras changer dans Réglages.</p>
+      <ProfilePicker />
+    {:else if step === 2}
       <h2 id="welcome-title">Six espaces, dans le menu à gauche</h2>
       <ul class="spaces">
         {#each spaces as s (s.name)}

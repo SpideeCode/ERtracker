@@ -14,6 +14,9 @@
   import { achievement, ago } from "$lib/labels";
   import { ui } from "$lib/ui.svelte";
   import type { Zone } from "$lib/zones";
+  import { prefs } from "$lib/prefs.svelte";
+  import { advisor } from "$lib/buildAdvisor.svelte";
+  import { Sparkles } from "@lucide/svelte";
 
   let { now }: { now: number } = $props();
 
@@ -68,6 +71,14 @@
     const total = stats.reduce((n, s) => n + s.total, 0);
     return total ? Math.round((done / total) * 100) : 0;
   });
+
+  /** Quests started and not finished. */
+  const questsOpen = $derived(
+    db.quests.filter((q) => {
+      const done = q.steps.map((_, i) => tracker.completed.has(`${q.id}#${i}`));
+      return done.some(Boolean) && !done.at(-1);
+    }).length,
+  );
 
   const showZone = (z: Zone) => ui.showPlace({ map: z.map, x: z.x, y: z.y, label: zoneData.name(z), radius: z.radius });
   const leftText = (z: Zone) =>
@@ -149,6 +160,65 @@
     {/if}
     <button class="link" onclick={() => ui.go({ kind: "journey" })}>Mon aventure →</button>
   </section>
+
+  <!-- Depends on how the player plays -->
+  {#if prefs.profile === "build" && advisor.ready && advisor.current[0]}
+    {@const best = advisor.current[0]}
+    {@const next = advisor.upgrades.flat().find((o) => o.ar.total > best.ar.total)}
+    <section class="card wide">
+      <div class="kicker"><Swords size={14} /> Ton build</div>
+      <div class="build">
+        <div>
+          <span class="muted small">Ta meilleure arme</span>
+          <h3>{best.name} +{best.level}</h3>
+          <p class="muted">{best.ar.total} d'attaque{best.twoHanded ? " à deux mains" : ""}</p>
+        </div>
+        {#if next}
+          <div>
+            <span class="muted small">Le plus gros gain à portée ({next.needs.length} objet{next.needs.length > 1 ? "s" : ""})</span>
+            <h3>{next.name}</h3>
+            <p class="muted"><span class="gain">+{next.ar.total - best.ar.total}</span> · à récupérer : {next.needs.map((n) => n.label).join(", ")}</p>
+          </div>
+        {:else}
+          <div>
+            <span class="muted small">À portée</span>
+            <p class="muted">Aucune arme à 1, 2 ou 3 objets ne fait mieux : ton build est déjà au sommet de ce qu'il peut viser.</p>
+          </div>
+        {/if}
+      </div>
+      <button class="link" onclick={() => ui.go({ kind: "builds" })}>Mes builds et où mettre mes niveaux →</button>
+    </section>
+  {:else if prefs.profile === "complete"}
+    <section class="card wide">
+      <div class="kicker"><Trophy size={14} /> Pour le 100 %</div>
+      <div class="numbers">
+        <div><strong>{stats[0].total - stats[0].done}</strong><span class="muted small">boss restants</span></div>
+        <div><strong>{stats[1].total - stats[1].done}</strong><span class="muted small">grâces</span></div>
+        <div><strong>{stats[3].total - stats[3].done}</strong><span class="muted small">donjons jamais visités</span></div>
+        <div><strong>{questsOpen}</strong><span class="muted small">quêtes en cours</span></div>
+      </div>
+      <div class="row">
+        <button class="link" onclick={() => ui.go({ kind: "explore" })}>Donjons ratés par région →</button>
+        <button class="link" onclick={() => ui.progress("quests")}>Quêtes en cours →</button>
+      </div>
+    </section>
+  {:else if prefs.profile === "discover"}
+    <section class="card wide discover">
+      <div class="kicker"><Sparkles size={14} /> Mode découverte</div>
+      <p class="muted">
+        {prefs.spoilerFree
+          ? "Les noms de ce que tu n'as pas encore trouvé restent cachés. Les suggestions ci-dessous disent où il reste à explorer, sans dire quoi."
+          : "Le mode sans spoil est désactivé : les noms de tout ce qui reste sont visibles."}
+      </p>
+      <button
+        class="ghost"
+        onclick={() => {
+          prefs.spoilerFree = !prefs.spoilerFree;
+          prefs.save();
+        }}>{prefs.spoilerFree ? "Tout afficher" : "Cacher à nouveau"}</button
+      >
+    </section>
+  {/if}
 
   <!-- Where to go -->
   <section class="card wide">
@@ -300,6 +370,29 @@
   .numbers {
     display: flex;
     gap: 24px;
+  }
+  .build {
+    display: flex;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+  .build h3 {
+    margin: 2px 0;
+  }
+  .build p {
+    margin: 0;
+  }
+  .gain {
+    color: #6fbf73;
+    font-weight: 600;
+  }
+  .row {
+    display: flex;
+    gap: 18px;
+    margin-top: 8px;
+  }
+  .discover button {
+    align-self: flex-start;
   }
   .numbers div {
     display: flex;

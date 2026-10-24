@@ -74,7 +74,7 @@ struct Place {
     pos: MapPos,
 }
 
-pub const FORMAT: u32 = 7;
+pub const FORMAT: u32 = 8;
 pub const LEGACY_CONV_FILE: &str = "legacy_conv.param";
 pub const WALKABLE_FILE: &str = "walkable.bin";
 

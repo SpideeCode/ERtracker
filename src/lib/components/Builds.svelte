@@ -1,309 +1,634 @@
 <script lang="ts">
-  import { Shield, Feather } from "@lucide/svelte";
+  // Builds, from the character's own save: best weapons in hand, what a few more
+  // items would bring, where to put the next levels, and the strongest builds.
+  import { Swords, PackagePlus, TrendingUp, Crown, Palette, MapPin, Hand, HandMetal } from "@lucide/svelte";
   import { gamedata } from "$lib/gamedata.svelte";
-  import { catalog } from "$lib/catalog.svelte";
   import { tracker } from "$lib/tracker.svelte";
-  import { THEMES, bestArmor, bestAshesOfWar, bestGoods, bestTalismans, bestWeapons, targetStats } from "$lib/builds";
-  import { STATS, grade, rarityOf } from "$lib/equipment";
+  import { advisor, topBuilds, type Need, type Option, type TopBuild } from "$lib/buildAdvisor.svelte";
+  import { DAMAGE_TYPES, upgradeCost, rarityOf } from "$lib/equipment";
+  import { SCALING_STATS, STAT_NAMES, STAT_SHORT, WEAPON_KINDS } from "$lib/ar";
+  import { catalog } from "$lib/catalog.svelte";
   import { ui } from "$lib/ui.svelte";
+  import ThemeBuilds from "./ThemeBuilds.svelte";
 
-  let themeId = $state("holy");
-  let ownedOnly = $state(false);
+  type Tab = "mine" | "improve" | "best" | "themes";
+  let tab = $state<Tab>(readTab());
+  function readTab(): Tab {
+    try {
+      return (localStorage.getItem("ertracker-builds-tab") as Tab) || "mine";
+    } catch {
+      return "mine";
+    }
+  }
+  $effect(() => {
+    try {
+      localStorage.setItem("ertracker-builds-tab", tab);
+    } catch {
+      /* convenience */
+    }
+  });
+  const TABS: { id: Tab; label: string; icon: typeof Swords }[] = [
+    { id: "mine", label: "Mon build", icon: Swords },
+    { id: "improve", label: "M'améliorer", icon: PackagePlus },
+    { id: "best", label: "Meilleurs builds", icon: Crown },
+    { id: "themes", label: "Par élément", icon: Palette },
+  ];
 
-  const theme = $derived(THEMES.find((t) => t.id === themeId)!);
-  const cat = $derived(gamedata.catalog);
-  const stats = $derived(targetStats(theme, tracker.character?.stats));
+  const stats = $derived(advisor.stats);
+  const best = $derived(advisor.current[0] ?? null);
+  /** Weapon studied in "next levels": the best in hand unless another is picked. */
+  let pickedId = $state<number | null>(null);
+  const studied = $derived(advisor.current.find((o) => o.weapon.id === pickedId) ?? best);
 
-  const keep = (c: number, id: number) => !ownedOnly || catalog.isOwned(c, id);
-  const weapons = $derived(cat ? bestWeapons(cat, theme, stats, 40).filter((p) => keep(2, p.weapon.id)).slice(0, 12) : []);
-  const talismans = $derived(cat ? bestTalismans(cat, theme, 20).filter((t) => keep(4, t.id)).slice(0, 8) : []);
-  const tears = $derived(cat ? bestGoods(cat, theme, [10], 10).filter((g) => keep(1, g.id)) : []);
-  const spells = $derived(
-    cat && theme.spells.length
-      ? bestGoods(cat, theme, theme.spells, 30, true)
-          .filter((g) => keep(1, g.id))
-          .slice(0, 10)
-      : [],
-  );
-  const ashes = $derived(cat ? bestAshesOfWar(cat, theme, 12).filter((a) => keep(5, a.id)).slice(0, 6) : []);
-  const armor = $derived(cat ? bestArmor(cat) : []);
+  /** Main stats of the character, e.g. "Force". */
+  const style = $derived.by(() => {
+    const main = SCALING_STATS.filter((i) => stats[i] >= 30).sort((a, b) => stats[b] - stats[a]);
+    return main.length ? main.map((i) => STAT_NAMES[i]).join(" / ") : "pas encore marqué";
+  });
 
-  const SLOTS = ["Tête", "Torse", "Bras", "Jambes"];
-  const open = (c: number, id: number) => (ui.sheet = `equip:${c}:${id}`);
-  const status = (c: number, id: number) => {
-    if (catalog.isOwned(c, id)) return { label: "possédé", cls: "ok" };
-    return catalog.whereIs(c, id).length ? { label: "sur la carte", cls: "map" } : { label: "ailleurs", cls: "" };
+  function openNeed(n: Need, o: Option) {
+    if (n.where.length) ui.sheet = n.where[0];
+    else if (n.kind === "weapon") ui.sheet = `equip:2:${o.weapon.id}`;
+    else if (n.kind === "ash" && o.ash) ui.sheet = `equip:5:${o.ash.id}`;
+  }
+
+  // Strongest builds at a level: computed on demand (a second or two).
+  let topLevel = $state(150);
+  let top = $state<TopBuild[] | null>(null);
+  let computing = $state(false);
+  let archetype = $state<string | null>(null);
+  function computeTop() {
+    if (!gamedata.catalog) return;
+    computing = true;
+    setTimeout(() => {
+      top = topBuilds(gamedata.catalog!, topLevel);
+      computing = false;
+    }, 30);
+  }
+  $effect(() => {
+    if (tab === "best" && !top && !computing && gamedata.catalog?.reinforce) {
+      topLevel = Math.max(100, Math.round((tracker.character?.level ?? 150) / 25) * 25);
+      computeTop();
+    }
+  });
+  const archetypes = $derived([...new Set((top ?? []).slice(0, 300).map((b) => b.archetype))].slice(0, 10));
+  const topShown = $derived((top ?? []).filter((b) => !archetype || b.archetype === archetype).slice(0, 15));
+
+  const damageLine = (ar: { byType: number[] }) =>
+    ar.byType.map((v, t) => (v ? `${DAMAGE_TYPES[t]} ${v}` : "")).filter(Boolean).join(" · ");
+  const ownsWeapon = (id: number) => advisor.own.weapons.has(id);
+  /** "Cendres de guerre : Lame sacrée" -> "Lame sacrée" */
+  const ashName = (a: { name: { fr: string | null; en: string } }) => (a.name.fr ?? a.name.en).replace(/^(Cendres de guerre|Ash of War)\s*:\s*/, "");
+  /** The weapon as it is now, when the advice changes its affinity. */
+  const asNow = (o: Option) => {
+    const mine = advisor.own.weapons.get(o.weapon.id);
+    if (!mine || mine.affinity === o.variant.affinity) return null;
+    return advisor.options.find((x) => x.weapon.id === o.weapon.id && x.variant.affinity === mine.affinity) ?? null;
   };
+  const kindLabel = $derived(advisor.kind === null ? "arme" : (WEAPON_KINDS[advisor.kind] ?? "arme").toLowerCase());
 </script>
 
-<header>
-  <h2>Conseiller de build</h2>
-</header>
+<div class="tabs">
+  {#each TABS as t (t.id)}
+    {@const Icon = t.icon}
+    <button class:active={tab === t.id} onclick={() => (tab = t.id)}><Icon size={15} /> {t.label}</button>
+  {/each}
+</div>
 
-{#if !cat}
-  <p class="notice">Les données d'équipement arrivent avec la mise à jour des données du jeu (onglet Carte).</p>
-{:else}
-  <div class="themes">
-    {#each THEMES as t (t.id)}
-      <button class="chip" class:active={t.id === themeId} onclick={() => (themeId = t.id)}>{t.name}</button>
-    {/each}
-  </div>
-
-  <section class="card intro">
-    <p><strong>Stats :</strong> {theme.advice}</p>
-    <p><strong>Affinité conseillée</strong> pour une arme qui peut changer de cendre : {theme.affinity}.</p>
-    <p class="muted small">
-      Dégâts estimés au niveau d'amélioration maximum, avec tes stats et {theme.stats.map((s) => STATS[s]).join(" et ")} à 60 au moins.
-    </p>
-    <label class="check"><input type="checkbox" bind:checked={ownedOnly} /> Seulement ce que je possède</label>
-  </section>
-
-  <section>
-    <h3>Armes</h3>
-    <table>
-      <tbody>
-        {#each weapons as p (p.weapon.id)}
-          {@const s = status(2, p.weapon.id)}
-          <tr onclick={() => open(2, p.weapon.id)}>
-            <td>
-              <span style="color: {rarityOf(p.weapon.rarity).color}">{p.weapon.name.fr ?? p.weapon.name.en}</span>
-              <div class="muted small">
-                {STATS.map((n, i) => (p.weapon.scaling_max[i] >= 25 ? `${n.slice(0, 3)} ${grade(p.weapon.scaling_max[i])}` : "")).filter(Boolean).join(" · ")}
-                {p.meets ? "" : " · prérequis non atteints"}
-              </div>
-            </td>
-            <td class="num"><strong>{p.damage}</strong><div class="muted small">dégâts</div></td>
-            <td class="state"><span class="pill {s.cls}">{s.label}</span></td>
-          </tr>
-        {:else}
-          <tr><td class="muted">Aucune arme pour ce thème.</td></tr>
+{#if tab === "themes"}
+  <ThemeBuilds />
+{:else if !advisor.ready}
+  <p class="notice">
+    Le calcul des dégâts arrive avec la mise à jour des données du jeu (elle se lance seule, voir la barre en haut).
+  </p>
+{:else if tab === "mine"}
+  {@render kindFilter()}
+  <section class="card">
+    <div class="kicker">Ton personnage</div>
+    <div class="me">
+      <div>
+        <h3>{tracker.character?.name} · niveau {tracker.character?.level}</h3>
+        <p class="muted">
+          Style : <strong>{style}</strong>{tracker.snapshot?.cycle ? ` · NG+${tracker.snapshot.cycle}` : ""}
+        </p>
+      </div>
+      <div class="stats">
+        {#each stats as v, i}
+          <span class="stat" class:main={SCALING_STATS.includes(i) && v >= 30}><small>{STAT_SHORT[i]}</small>{v}</span>
         {/each}
-      </tbody>
-    </table>
-  </section>
-
-  {#if ashes.length}
-    <section>
-      <h3>Cendres de guerre</h3>
-      <ul class="list">
-        {#each ashes as a (a.id)}
-          {@const s = status(5, a.id)}
-          <li>
-            <button onclick={() => open(5, a.id)}>{a.name.fr ?? a.name.en}</button>
-            <span class="muted small">{a.info?.fr ?? a.info?.en ?? ""}</span>
-            <span class="pill {s.cls}">{s.label}</span>
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
-
-  <section>
-    <h3>Talismans</h3>
-    <ul class="list">
-      {#each talismans as t (t.id)}
-        {@const s = status(4, t.id)}
-        <li>
-          <button style="color: {rarityOf(t.rarity).color}" onclick={() => open(4, t.id)}>{t.name.fr ?? t.name.en}</button>
-          <span class="muted small">{t.info?.fr ?? t.info?.en ?? ""}</span>
-          <span class="pill {s.cls}">{s.label}</span>
-        </li>
-      {:else}
-        <li class="muted">Aucun talisman spécifique.</li>
-      {/each}
-    </ul>
-  </section>
-
-  {#if spells.length}
-    <section>
-      <h3>{theme.spells.includes(5) ? "Sorts" : "Incantations"}</h3>
-      <ul class="list">
-        {#each spells as g (g.id)}
-          {@const s = status(1, g.id)}
-          <li>
-            <button style="color: {rarityOf(g.rarity).color}" onclick={() => open(1, g.id)}>{g.name.fr ?? g.name.en}</button>
-            <span class="muted small">
-              {g.spell ? `${g.spell.fp} PC · ${["Int", "Foi", "Arc"].map((n, i) => (g.spell!.requirements[i] ? `${n} ${g.spell!.requirements[i]}` : "")).filter(Boolean).join(" ")}` : ""}
-            </span>
-            <span class="pill {s.cls}">{s.label}</span>
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
-
-  {#if tears.length}
-    <section>
-      <h3>Larmes de cristal (Fiole de larmes)</h3>
-      <ul class="list">
-        {#each tears as g (g.id)}
-          {@const s = status(1, g.id)}
-          <li>
-            <button onclick={() => open(1, g.id)}>{g.name.fr ?? g.name.en}</button>
-            <span class="muted small">{g.info?.fr ?? g.info?.en ?? ""}</span>
-            <span class="pill {s.cls}">{s.label}</span>
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
-
-  <section>
-    <h3>Armures</h3>
-    <p class="muted small">Pour chaque emplacement : la plus protectrice, et le meilleur rapport protection/poids.</p>
-    <div class="armor">
-      {#each armor as slot (slot.slot)}
-        <div class="card">
-          <h4>{SLOTS[slot.slot]}</h4>
-          {#each [...slot.heavy.slice(0, 2), ...slot.light.slice(0, 2)] as a, i (a.id + "-" + i)}
-            <button class="armor-row" onclick={() => open(3, a.id)}>
-              <span class="with-icon">{#if i < 2}<Shield size={13} />{:else}<Feather size={13} />{/if} {a.name.fr ?? a.name.en}</span>
-              <span class="muted small">{a.weight} · {catalog.isOwned(3, a.id) ? "possédé" : ""}</span>
-            </button>
-          {/each}
-        </div>
-      {/each}
+      </div>
     </div>
+  </section>
+
+  <section class="card">
+    <div class="kicker">Tes meilleures armes{advisor.kind === null ? "" : ` (${kindLabel})`}, avec ce que tu as déjà</div>
+    <p class="muted small">
+      Puissance d'attaque calculée comme dans le jeu avec tes stats et le niveau de chaque arme. Une affinité
+      n'apparaît que si tu as la pierre à aiguiser et une cendre de guerre qui la permet.
+    </p>
+    <ol class="options">
+      {#each advisor.current.slice(0, 6) as o, i (o.weapon.id)}
+        {@render option(o, i === 0, true)}
+      {:else}
+        <li class="muted">Tu n'as pas encore d'arme de ce type : regarde l'onglet « M'améliorer ».</li>
+      {/each}
+    </ol>
+  </section>
+
+  {#if studied}
+    {@const plans = [5, 10, 20].map((n) => ({ n, r: advisor.nextLevels(studied, n) }))}
+    {@const re = advisor.respec(studied)}
+    <section class="card">
+      <div class="kicker"><TrendingUp size={14} /> Où mettre tes prochains niveaux</div>
+      <label class="pick">
+        Pour
+        <select bind:value={pickedId}>
+          <option value={null}>{best?.name} (ta meilleure arme)</option>
+          {#each advisor.current.slice(1, 12) as o (o.weapon.id)}
+            <option value={o.weapon.id}>{o.name}</option>
+          {/each}
+        </select>
+      </label>
+      <table class="plan">
+        <thead><tr><th>Niveaux</th><th>Répartition</th><th class="num">Attaque</th></tr></thead>
+        <tbody>
+          {#each plans as { n, r } (n)}
+            <tr>
+              <td>+{n}</td>
+              <td>{@render spread(r.stats)}</td>
+              <td class="num"><strong>{r.ar.total}</strong> <span class="gain">+{r.ar.total - studied.ar.total}</span></td>
+            </tr>
+          {/each}
+          <tr class="respec">
+            <td>Renaissance</td>
+            <td>
+              {@render spread(re.stats)}
+              <div class="muted small">Même niveau, stats offensives refaites (Larme larvaire chez Rennala). Base 10, ta classe peut imposer plus.</div>
+            </td>
+            <td class="num">
+              <strong>{re.ar.total}</strong>
+              <span class="gain" class:neg={re.ar.total < studied.ar.total}>{re.ar.total >= studied.ar.total ? "+" : ""}{re.ar.total - studied.ar.total}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  {/if}
+{:else if tab === "improve"}
+  {@render kindFilter()}
+  <p class="lead">
+    {#if best}
+      Ta référence : <strong>{best.name} +{best.level}</strong>, <strong>{best.ar.total}</strong> d'attaque. Voici ce que tu peux viser,
+      selon le nombre d'objets à récupérer.
+    {:else}
+      Tu n'as pas encore de {kindLabel} : voici les meilleures à récupérer.
+    {/if}
+    Une nouvelle arme est comptée au niveau de ta meilleure (+{advisor.reach.regular}, ou +{advisor.reach.somber} pour une arme unique).
+  </p>
+  {#each advisor.upgrades as list, i}
+    {@const beats = list.filter((o) => !best || o.ar.total > best.ar.total).length}
+    <section class="card">
+      <div class="kicker"><PackagePlus size={14} /> Avec {i + 1} objet{i ? "s" : ""} à récupérer</div>
+      {#if best && list.length && !beats}
+        <p class="muted small">Rien ne dépasse ta meilleure arme ici : voici les options les plus proches, utiles pour changer de style.</p>
+      {/if}
+      {#if list.length}
+        <ol class="options">
+          {#each list as o (o.weapon.id + ":" + o.variant.affinity)}
+            {@render option(o, false, false)}
+          {/each}
+        </ol>
+      {:else}
+        <p class="muted">Aucune option avec {i + 1} objet{i ? "s" : ""}.</p>
+      {/if}
+    </section>
+  {/each}
+  {#if advisor.smithing.length}
+    <section class="card">
+      <div class="kicker"><TrendingUp size={14} /> En améliorant une arme que tu as</div>
+      <ol class="options">
+        {#each advisor.smithing as { o, max } (o.weapon.id)}
+          {@const cost = upgradeCost(gamedata.catalog!, o.weapon, o.level, o.weapon.max_level)}
+          <li class="option">
+            <div class="main">
+              <button class="name" style="color: {rarityOf(o.weapon.rarity).color}" onclick={() => (ui.sheet = `equip:2:${o.weapon.id}`)}>{o.name}</button>
+              <span class="muted small">+{o.level} → +{o.weapon.max_level} · {o.ar.total} → {max.ar.total}</span>
+              <div class="muted small">{cost.runes.toLocaleString("fr-FR")} runes · {cost.materials.map((m) => `${m.count} ${m.name}`).join(", ")}</div>
+            </div>
+            <div class="side">
+              <strong class="ar">{max.ar.total}</strong>
+              {#if best}<span class="gain" class:neg={max.ar.total < best.ar.total}>{max.ar.total >= best.ar.total ? "+" : ""}{max.ar.total - best.ar.total}</span>{/if}
+            </div>
+          </li>
+        {/each}
+      </ol>
+    </section>
+  {/if}
+{:else if tab === "best"}
+  <section class="card">
+    <div class="kicker"><Crown size={14} /> Les builds les plus puissants, calculés</div>
+    <p class="muted small">
+      Pour chaque arme et chaque affinité, au niveau d'amélioration maximum : Vigueur 60, Esprit 20, Endurance 25, et le
+      reste réparti au mieux pour l'arme. Classés par puissance d'attaque (hors buffs, saignement et effets).
+    </p>
+    <div class="controls">
+      <label>
+        Niveau du personnage
+        <select bind:value={topLevel} onchange={computeTop}>
+          {#each [80, 100, 125, 150, 175, 200, 250] as l}<option value={l}>{l}</option>{/each}
+        </select>
+      </label>
+      <div class="chips">
+        <button class="chip" class:active={!archetype} onclick={() => (archetype = null)}>Tous</button>
+        {#each archetypes as a (a)}
+          <button class="chip" class:active={archetype === a} onclick={() => (archetype = a)}>{a}</button>
+        {/each}
+      </div>
+    </div>
+    {#if computing || !top}
+      <p class="muted">Calcul de toutes les combinaisons…</p>
+    {:else}
+      <ol class="options">
+        {#each topShown as b (b.weapon.id + ":" + b.variant.affinity)}
+          <li class="option">
+            <div class="main">
+              <button class="name" style="color: {rarityOf(b.weapon.rarity).color}" onclick={() => (ui.sheet = `equip:2:${b.weapon.id}`)}>{b.name}</button>
+              <span class="muted small">+{b.weapon.max_level} · {b.archetype}{b.twoHanded ? " · à deux mains" : ""}</span>
+              <div class="muted small">{damageLine(b.ar)}</div>
+              <div class="small">{@render spread(b.stats)}</div>
+            </div>
+            <div class="side">
+              <strong class="ar">{b.ar.total}</strong>
+              {#if ownsWeapon(b.weapon.id)}<span class="pill ok">à toi</span>
+              {:else if catalog.whereIs(2, b.weapon.id).length}
+                <button class="pill map" onclick={() => (ui.sheet = catalog.whereIs(2, b.weapon.id)[0])}><MapPin size={11} /> sur la carte</button>
+              {:else}<span class="pill">boss, marchand ou quête</span>{/if}
+            </div>
+          </li>
+        {/each}
+      </ol>
+    {/if}
   </section>
 {/if}
 
+{#snippet kindFilter()}
+  <label class="kind">
+    Type d'arme
+    <select bind:value={advisor.kind}>
+      <option value={null}>Tous les types</option>
+      {#each advisor.kinds as k (k)}
+        {#if WEAPON_KINDS[k]}<option value={k}>{WEAPON_KINDS[k]}</option>{/if}
+      {/each}
+    </select>
+  </label>
+{/snippet}
+
+{#snippet spread(s: number[])}
+  <span class="spread">
+    {#each SCALING_STATS as i (i)}
+      {#if s[i] !== stats[i] || s[i] >= 20}
+        <span class:up={s[i] > stats[i]} class:down={s[i] < stats[i]}>{STAT_SHORT[i]} {s[i]}{s[i] > stats[i] ? ` (+${s[i] - stats[i]})` : ""}</span>
+      {/if}
+    {/each}
+  </span>
+{/snippet}
+
+{#snippet option(o: Option, first: boolean, mine: boolean)}
+  {@const max = o.weapon.max_level}
+  {@const cost = mine && o.level < max ? upgradeCost(gamedata.catalog!, o.weapon, o.level, max) : null}
+  <li class="option" class:first>
+    <div class="main">
+      <button class="name" style="color: {rarityOf(o.weapon.rarity).color}" onclick={() => (ui.sheet = `equip:2:${o.weapon.id}`)}>{o.name}</button>
+      <span class="muted small">
+        +{o.level}
+        {#if o.twoHanded}· <Hand size={11} /> à deux mains (à une main : {o.oneHand}){:else}· <HandMetal size={11} /> à une main{/if}
+      </span>
+      <div class="muted small">{damageLine(o.ar)}</div>
+      {#if o.ar.missing.length}
+        <div class="warn small">Il te manque des points en {o.ar.missing.map((i) => STAT_NAMES[i]).join(", ")} (dégâts réduits)</div>
+      {/if}
+      {#if o.ash && !o.needs.some((n) => n.kind === "ash")}
+        {@const now = asNow(o)}
+        <div class="small">
+          Mets-lui la cendre <strong>{ashName(o.ash)}</strong> (déjà à toi) en affinité {o.name.replace(o.weapon.name.fr ?? o.weapon.name.en, "").trim() || "standard"}, à une grâce
+          {#if now}<span class="muted"> · aujourd'hui : {now.name}, {now.ar.total}</span>{/if}
+        </div>
+      {/if}
+      {#if o.needs.length}
+        <ul class="needs">
+          {#each o.needs as n (n.label)}
+            <li>
+              <span class="need-kind">{n.kind === "weapon" ? "Arme" : n.kind === "ash" ? "Cendre de guerre" : "Pierre à aiguiser"}</span>
+              {n.label}
+              <button class="where" onclick={() => openNeed(n, o)}>
+                {#if n.where.length}<MapPin size={11} /> Où ?{:else}Comment l'obtenir{/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+      {#if cost}
+        <div class="muted small">
+          À +{max} : {cost.runes.toLocaleString("fr-FR")} runes, {cost.materials.map((m) => `${m.count} ${m.name}`).join(", ")}
+        </div>
+      {/if}
+    </div>
+    <div class="side">
+      <strong class="ar">{o.ar.total}</strong>
+      {#if !mine && best}
+        {@const d = o.ar.total - best.ar.total}
+        <span class="gain" class:neg={d < 0}>{d >= 0 ? "+" : ""}{d} ({d >= 0 ? "+" : ""}{Math.round((d / Math.max(1, best.ar.total)) * 100)} %)</span>
+      {/if}
+      {#if mine && first}<span class="pill ok">la meilleure</span>{/if}
+    </div>
+  </li>
+{/snippet}
+
 <style>
-  h2 {
-    margin: 0 0 12px;
-  }
-  h3 {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--gold);
-    margin: 22px 0 8px;
-  }
-  h4 {
-    margin: 0 0 6px;
-    font-size: 13px;
-  }
-  .notice {
-    background: var(--surface);
-    border: 1px solid var(--gold-dim);
-    border-radius: 6px;
-    padding: 10px 12px;
-  }
-  .themes {
+  .tabs {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+    gap: 2px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 18px;
   }
-  .chip {
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
+  .tabs button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
     color: var(--text-dim);
-    border-radius: 14px;
-    padding: 4px 12px;
+    padding: 8px 14px;
     font: inherit;
     cursor: pointer;
   }
-  .chip.active {
-    background: var(--gold);
-    border-color: var(--gold);
-    color: #1a1508;
+  .tabs button.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
   }
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 12px 14px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    max-width: 900px;
   }
-  .intro {
-    margin-top: 14px;
+  .kicker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gold);
+    margin-bottom: 8px;
   }
-  .intro p {
-    margin: 0 0 6px;
+  h3 {
+    margin: 0;
+    font-family: var(--font-title);
+    font-weight: 600;
   }
-  .check {
+  p {
+    margin: 4px 0 8px;
+  }
+  .lead {
+    max-width: 900px;
+    color: var(--text-dim);
+  }
+  .small {
+    font-size: 12px;
+  }
+  .notice {
+    border: 1px solid var(--gold-dim);
+    border-radius: 6px;
+    padding: 10px 12px;
+    max-width: 700px;
+  }
+  .me {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .stats {
     display: flex;
     gap: 6px;
-    align-items: center;
-    cursor: pointer;
-    margin-top: 6px;
   }
-  table {
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 38px;
+    padding: 4px 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .stat small {
+    font-weight: 400;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .stat.main {
+    border-color: var(--gold-dim);
+    color: var(--gold);
+  }
+  .options {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .option {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid var(--border);
+  }
+  .option:first-child {
+    border-top: none;
+  }
+  .main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .name {
+    align-self: flex-start;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .name:hover {
+    text-decoration: underline;
+  }
+  .main > .muted.small:first-of-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    min-width: 110px;
+  }
+  .ar {
+    font-size: 22px;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+  }
+  .gain {
+    color: #6fbf73;
+    font-size: 12px;
+  }
+  .gain.neg {
+    color: var(--danger);
+  }
+  .warn {
+    color: #f0c27a;
+  }
+  .needs {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .needs li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .need-kind {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 0 6px;
+  }
+  .where {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    color: var(--gold);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 1px 8px;
+    color: var(--text-dim);
+    background: none;
+    font-family: inherit;
+  }
+  .pill.ok {
+    border-color: #5fae6a;
+    color: #5fae6a;
+  }
+  button.pill.map {
+    border-color: var(--gold-dim);
+    color: var(--gold);
+    cursor: pointer;
+  }
+  .kind {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    color: var(--text-dim);
+  }
+  .pick {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    color: var(--text-dim);
+  }
+  .plan {
     width: 100%;
     border-collapse: collapse;
   }
-  tr {
-    cursor: pointer;
-    border-bottom: 1px solid var(--border);
+  .plan th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+    padding: 4px 6px;
   }
-  tr:hover {
-    background: var(--surface);
-  }
-  td {
-    padding: 6px 8px;
+  .plan td {
+    padding: 8px 6px;
+    border-top: 1px solid var(--border);
+    vertical-align: top;
   }
   .num {
     text-align: right;
     white-space: nowrap;
   }
-  .state {
-    width: 100px;
-    text-align: right;
+  .spread {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
   }
-  .small {
-    font-size: 12px;
+  .spread .up {
+    color: #6fbf73;
   }
-  .pill {
-    font-size: 11px;
-    border: 1px solid var(--border-strong);
-    border-radius: 8px;
-    padding: 0 6px;
-    color: var(--muted);
-    white-space: nowrap;
+  .spread .down {
+    color: #f0a07a;
   }
-  .pill.ok {
-    color: #5fae6a;
-    border-color: #3f6b42;
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 8px;
   }
-  .pill.map {
-    color: var(--gold);
-    border-color: var(--gold-dim);
+  .controls label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-dim);
   }
-  .list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
   }
-  .list li {
-    display: grid;
-    grid-template-columns: minmax(160px, 260px) 1fr auto;
-    gap: 10px;
-    align-items: baseline;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .list button,
-  .armor-row {
+  .chip {
     background: none;
-    border: none;
-    padding: 0;
+    border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    border-radius: 14px;
+    padding: 2px 10px;
     font: inherit;
-    color: inherit;
-    text-align: left;
+    font-size: 12px;
     cursor: pointer;
   }
-  .list button:hover,
-  .armor-row:hover {
+  .chip.active {
+    border-color: var(--gold);
     color: var(--gold);
-  }
-  .armor {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 10px;
-  }
-  .armor-row {
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-    padding: 3px 0;
-    gap: 8px;
   }
 </style>

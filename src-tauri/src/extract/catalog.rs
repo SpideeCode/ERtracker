@@ -17,7 +17,65 @@ pub struct Catalog {
     armor: Vec<Armor>,
     talismans: Vec<Talisman>,
     goods: Vec<Goods>,
-    ashes_of_war: Vec<Simple>,
+    ashes_of_war: Vec<AshOfWar>,
+    /// Attack rating data: per reinforcement type, the multipliers of each level.
+    reinforce: BTreeMap<i32, Vec<ReinforceLevel>>,
+    /// Stat-to-bonus curves (CalcCorrectGraph), by id.
+    curves: BTreeMap<i32, Curve>,
+    /// Which stats feed which damage type (AttackElementCorrectParam), by id.
+    elements: BTreeMap<i32, ElementCorrect>,
+}
+
+#[derive(Serialize)]
+struct ReinforceLevel {
+    /// Physical, magic, fire, lightning, holy.
+    attack: [f32; 5],
+    /// Strength, dexterity, intelligence, faith, arcane.
+    scaling: [f32; 5],
+}
+
+#[derive(Serialize)]
+struct Curve {
+    stat: [f32; 5],
+    grow: [f32; 5],
+    exp: [f32; 4],
+}
+
+#[derive(Serialize)]
+struct ElementCorrect {
+    /// [damage type][stat]: the stat scales this damage type.
+    uses: [[bool; 5]; 5],
+    /// [damage type][stat]: replaces the weapon's scaling when not -1.
+    overwrite: [[i16; 5]; 5],
+}
+
+/// One affinity of a weapon (Standard, Heavy, Keen... Occult), as stored in its own row.
+#[derive(Serialize)]
+struct Variant {
+    /// 0 standard, 1 heavy, 2 keen, 3 quality, 4 fire, 5 flame art, 6 lightning, 7 sacred,
+    /// 8 magic, 9 cold, 10 poison, 11 blood, 12 occult.
+    affinity: u8,
+    /// In-game name of this affinity, e.g. "Heavy Uchigatana".
+    name: Option<Text>,
+    attack: [u16; 5],
+    scaling: [f32; 5],
+    /// Curve id per damage type.
+    curves: [u8; 5],
+    elements: i32,
+    reinforce: i32,
+}
+
+#[derive(Serialize)]
+struct AshOfWar {
+    id: i32,
+    name: Text,
+    info: Option<Text>,
+    /// Weapon types (wepType) it can be put on.
+    mounts: Vec<u16>,
+    /// Affinities it allows.
+    affinities: Vec<u8>,
+    /// Skill (SwordArtsParam) it gives; weapons sharing it come with this Ash of War.
+    skill: i32,
 }
 
 #[derive(Serialize)]
@@ -53,6 +111,12 @@ struct Weapon {
     upgrade: String,
     /// Can take another Ash of War / affinity.
     infusable: bool,
+    /// Weapon type (wepType): dagger, straight sword...
+    kind: u16,
+    /// Skill (SwordArtsParam) it comes with.
+    skill: i32,
+    /// Affinities available, the first being Standard.
+    variants: Vec<Variant>,
 }
 
 #[derive(Serialize)]
@@ -99,12 +163,13 @@ struct Spell {
     requirements: [u8; 3],
 }
 
-#[derive(Serialize)]
-struct Simple {
-    id: i32,
-    name: Text,
-    info: Option<Text>,
-}
+
+/// Weapon type (wepType) of each "can mount" bit of an Ash of War, 0 for unused bits. Checked
+/// against the game: every infusable weapon's own Ash of War has its type's bit set.
+const MOUNT_TYPES: [u16; 44] = [
+    1, 3, 5, 7, 9, 11, 13, 14, 15, 16, 17, 19, 21, 23, 24, 25, 0, 28, 29, 31, 37, 35, 39, 41, 50, 51, 53, 55, 56, 57, 0, 61, 65,
+    67, 69, 87, 88, 89, 90, 91, 92, 93, 94, 95,
+];
 
 /// Goods kept in the catalogue: key items, spells, spirit ashes, physick tears.
 const GOODS_TYPES: [u8; 8] = [1, 5, 7, 8, 10, 16, 17, 18];
@@ -227,8 +292,74 @@ pub fn extract(params: &HashMap<String, Vec<u8>>, en: &HashMap<String, Fmg>, fr:
             max_level,
             upgrade: key,
             infusable: u8_(d, 0x241) == 2,
+            kind: u16_(d, 0x1a6),
+            skill: i32_(d, 0x198),
+            variants: (0..13u8)
+                .filter_map(|a| {
+                    let v = weapons_p.get(id + a as i32 * 100)?;
+                    Some(Variant {
+                        affinity: a,
+                        name: text.get("WeaponName", id + a as i32 * 100),
+                        attack: [u16_(v, 0xc8), u16_(v, 0xca), u16_(v, 0xcc), u16_(v, 0xce), u16_(v, 0x18c)],
+                        scaling: [f32_(v, 0x24), f32_(v, 0x28), f32_(v, 0x2c), f32_(v, 0x30), f32_(v, 0x19c)],
+                        curves: [u8_(v, 0xec), u8_(v, 0x17d), u8_(v, 0x17e), u8_(v, 0x17f), u8_(v, 0x18e)],
+                        elements: i32_(v, 0x22c),
+                        reinforce: i16_(v, 0xda) as i32,
+                    })
+                })
+                .collect(),
         });
     }
+
+    let mut reinforce_tables = BTreeMap::new();
+    let mut curve_ids = std::collections::BTreeSet::new();
+    let mut element_ids = std::collections::BTreeSet::new();
+    for w in &weapons {
+        for v in &w.variants {
+            curve_ids.extend(v.curves.iter().map(|&c| c as i32));
+            element_ids.insert(v.elements);
+            reinforce_tables.entry(v.reinforce).or_insert_with(|| {
+                (0..=25)
+                    .map_while(|l| reinforce.get(v.reinforce + l))
+                    .map(|r| ReinforceLevel {
+                        attack: [0x0, 0x4, 0x8, 0xc, 0x58].map(|o| f32_(r, o)),
+                        scaling: [0x1c, 0x20, 0x24, 0x28, 0x60].map(|o| f32_(r, o)),
+                    })
+                    .collect::<Vec<_>>()
+            });
+        }
+    }
+    let graphs = Rows::new(params, "CalcCorrectGraph")?;
+    let curves = curve_ids
+        .into_iter()
+        .filter_map(|id| {
+            let g = graphs.get(id)?;
+            Some((
+                id,
+                Curve {
+                    stat: std::array::from_fn(|i| f32_(g, i * 4)),
+                    grow: std::array::from_fn(|i| f32_(g, 0x14 + i * 4)),
+                    exp: std::array::from_fn(|i| f32_(g, 0x28 + i * 4)),
+                },
+            ))
+        })
+        .collect();
+    let correct = Rows::new(params, "AttackElementCorrectParam")?;
+    let elements = element_ids
+        .into_iter()
+        .filter_map(|id| {
+            let e = correct.get(id)?;
+            // 25 one-bit flags, damage type major, then 25 s16 overrides.
+            let bit = |i: usize| e[i / 8] >> (i % 8) & 1 == 1;
+            Some((
+                id,
+                ElementCorrect {
+                    uses: std::array::from_fn(|t| std::array::from_fn(|s| bit(t * 5 + s))),
+                    overwrite: std::array::from_fn(|t| std::array::from_fn(|s| i16_(e, 4 + (t * 5 + s) * 2))),
+                },
+            ))
+        })
+        .collect();
 
     let protector = Rows::new(params, "EquipParamProtector")?;
     let cut = |d: &[u8], o: usize| ((1.0 - f32_(d, o)) * 1000.0).round() / 10.0;
@@ -307,16 +438,23 @@ pub fn extract(params: &HashMap<String, Vec<u8>>, en: &HashMap<String, Fmg>, fr:
         })
         .collect();
 
-    let ashes_of_war = en
-        .get("GemName")
-        .map(|names| {
-            let mut ids: Vec<i32> = names.keys().copied().collect();
-            ids.sort_unstable();
-            ids.into_iter()
-                .filter_map(|id| Some(Simple { id, name: text.get("GemName", id)?, info: text.get("GemInfo", id) }))
-                .collect()
+    let gems = Rows::new(params, "EquipParamGem")?;
+    let ashes_of_war = gems
+        .order
+        .iter()
+        .filter_map(|&id| {
+            let g = gems.get(id)?;
+            let bit = |byte: usize, i: usize| g[byte + i / 8] >> (i % 8) & 1 == 1;
+            Some(AshOfWar {
+                id,
+                name: text.get("GemName", id)?,
+                info: text.get("GemInfo", id),
+                mounts: (0..MOUNT_TYPES.len()).filter(|&i| bit(0x38, i)).map(|i| MOUNT_TYPES[i]).filter(|&t| t > 0).collect(),
+                affinities: (0..13u8).filter(|&a| bit(0x30, a as usize)).collect(),
+                skill: i32_(g, 0x18),
+            })
         })
-        .unwrap_or_default();
+        .collect();
 
-    Ok(Catalog { upgrades, weapons, armor, talismans, goods, ashes_of_war })
+    Ok(Catalog { upgrades, weapons, armor, talismans, goods, ashes_of_war, reinforce: reinforce_tables, curves, elements })
 }

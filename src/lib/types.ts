@@ -76,6 +76,8 @@ export interface Snapshot {
   completed: string[];
   map_position: MapPos | null;
   loaded_at: number;
+  /** Playthrough: 0 first, 1 NG+... */
+  cycle: number;
 }
 
 export interface MapInfo {
@@ -141,6 +143,54 @@ export interface CatalogWeapon {
   max_level: number;
   upgrade: string;
   infusable: boolean;
+  /** Weapon type (wepType): 1 dagger, 3 straight sword, 13 katana... */
+  kind: number;
+  /** Skill it comes with (matches an Ash of War's skill). */
+  skill: number;
+  /** Affinities available, the first being Standard. */
+  variants: WeaponVariant[];
+}
+
+export interface WeaponVariant {
+  /** 0 standard, 1 heavy, 2 keen, 3 quality, 4 fire, 5 flame art, 6 lightning, 7 sacred, 8 magic, 9 cold, 10 poison, 11 blood, 12 occult. */
+  affinity: number;
+  /** In-game name, e.g. "Uchigatana lourd". */
+  name: Text | null;
+  /** Physical, magic, fire, lightning, holy at +0. */
+  attack: number[];
+  /** Strength, dexterity, intelligence, faith, arcane at +0. */
+  scaling: number[];
+  /** Curve id per damage type. */
+  curves: number[];
+  elements: number;
+  reinforce: number;
+}
+
+export interface AshOfWar {
+  id: number;
+  name: Text;
+  info: Text | null;
+  /** Weapon types it fits on. */
+  mounts: number[];
+  affinities: number[];
+  skill: number;
+}
+
+export interface ReinforceLevel {
+  attack: number[];
+  scaling: number[];
+}
+
+export interface Curve {
+  stat: number[];
+  grow: number[];
+  exp: number[];
+}
+
+export interface ElementCorrect {
+  /** [damage type][stat] */
+  uses: boolean[][];
+  overwrite: number[][];
 }
 
 export interface CatalogArmor {
@@ -179,7 +229,10 @@ export interface Catalog {
   armor: CatalogArmor[];
   talismans: CatalogTalisman[];
   goods: CatalogGoods[];
-  ashes_of_war: { id: number; name: Text; info: Text | null }[];
+  ashes_of_war: AshOfWar[];
+  reinforce: Record<string, ReinforceLevel[]>;
+  curves: Record<string, Curve>;
+  elements: Record<string, ElementCorrect>;
 }
 
 /** One item of a pickup (items.json). */
