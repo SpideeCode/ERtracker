@@ -6,6 +6,8 @@
   import { assetBase, gamedata } from "$lib/gamedata.svelte";
   import { DUNGEON_ICONS, formatDistance, planRoute } from "$lib/route";
   import { walkPath } from "$lib/pathfind";
+  import { journal } from "$lib/journal.svelte";
+  import { sessions } from "$lib/history";
   import { ui } from "$lib/ui.svelte";
   import { ITEM_CATEGORIES, categoryById, pickupCategory, pickupTitle } from "$lib/items";
   import type { Entry, MapId, MapInfo, MarkerPos } from "$lib/types";
@@ -29,6 +31,10 @@
   let showBosses = $state(true);
   let missingOnly = $state(false);
   let showDungeons = $state(true);
+  let showExploration = $state(false);
+  let showJourney = $state(true);
+  let showDeaths = $state(false);
+  const historyLayer = L.layerGroup();
   /** "important", "none", "all" or an item category id. */
   let itemFilter = $state("important");
   let shown = $state(0);
@@ -58,8 +64,10 @@
       preferCanvas: true,
       attributionControl: false,
     });
+    historyLayer.addTo(map);
     markerLayer.addTo(map);
     routeLayer.addTo(map);
+    journal.reload();
     // The side sheet changes the map's width.
     const resize = new ResizeObserver(() => map.invalidateSize());
     resize.observe(el);
@@ -145,6 +153,57 @@
       });
     }
     shown = count;
+  });
+
+  // Exploration (from what was picked up, discovered, defeated), journey and deaths (from the journal).
+  $effect(() => {
+    if (!map) return;
+    historyLayer.clearLayers();
+    const done = tracker.completed;
+    const metres = (m: number) => m / 2 ** info.max_zoom;
+    if (showExploration) {
+      for (const [id, p] of gamedata.positions) {
+        if (p.map !== current || !done.has(id)) continue;
+        L.circle(toLatLng(p.x, p.y), { radius: metres(90), stroke: false, fillColor: "#f3d27a", fillOpacity: 0.13, interactive: false }).addTo(historyLayer);
+      }
+    }
+    const all = sessions(journal.records);
+    if (showJourney) {
+      all.forEach((s, i) => {
+        const recent = i === all.length - 1;
+        const color = recent ? "#5ab0ff" : `hsl(${(i * 47) % 360} 55% 60%)`;
+        let line: L.LatLng[] = [];
+        let prev: { x: number; y: number } | null = null;
+        const flush = () => {
+          if (line.length > 1) L.polyline(line, { color, weight: recent ? 4 : 3, opacity: recent ? 0.95 : 0.6, interactive: false }).addTo(historyLayer);
+          line = [];
+        };
+        for (const r of s.records) {
+          const p = r.pos;
+          if (!p || p.map !== current) {
+            flush();
+            prev = null;
+            continue;
+          }
+          // Long jumps are fast travel, not walking.
+          if (prev && Math.hypot(p.x - prev.x, p.y - prev.y) > 400) flush();
+          line.push(toLatLng(p.x, p.y));
+          prev = p;
+        }
+        flush();
+      });
+    }
+    if (showDeaths) {
+      for (let i = 1; i < journal.records.length; i++) {
+        const r = journal.records[i];
+        const n = r.deaths - journal.records[i - 1].deaths;
+        const p = r.death_pos ?? r.pos;
+        if (n <= 0 || !p || p.map !== current) continue;
+        L.marker(toLatLng(p.x, p.y), { icon: L.divIcon({ className: "death-icon", html: "✕", iconSize: [14, 14] }) })
+          .bindTooltip(`${n} mort${n > 1 ? "s" : ""} · ${new Date(r.t).toLocaleString("fr-FR")}`, { direction: "top" })
+          .addTo(historyLayer);
+      }
+    }
   });
 
   // "You are here", from the last save.
@@ -295,6 +354,11 @@
       <label><input type="checkbox" bind:checked={missingOnly} /> Manquants seulement</label>
     </div>
     <div class="filters">
+      <label><input type="checkbox" bind:checked={showExploration} /> Exploration</label>
+      <label><input type="checkbox" bind:checked={showJourney} /> Mon voyage</label>
+      <label><input type="checkbox" bind:checked={showDeaths} /> Morts</label>
+    </div>
+    <div class="filters">
       <label>
         Objets
         <select bind:value={itemFilter}>
@@ -443,6 +507,14 @@
       transform: scale(2.2);
       opacity: 0;
     }
+  }
+  :global(.death-icon) {
+    color: #e0574a;
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 14px;
+    text-align: center;
+    text-shadow: 0 0 3px #000;
   }
   :global(.entrance-icon) {
     background: #5ab0ff;

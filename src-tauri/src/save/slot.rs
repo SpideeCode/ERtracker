@@ -31,6 +31,10 @@ pub struct SlotInfo {
     pub position: Option<Position>,
     /// Vigor, mind, endurance, strength, dexterity, intelligence, faith, arcane.
     pub stats: [u32; 8],
+    /// Total deaths of the character.
+    pub deaths: u32,
+    /// Where the character last died (the bloodstain), if any.
+    pub bloodstain: Option<Position>,
     /// Runes held, and where that u32 lives in the slot data.
     pub runes: u32,
     pub runes_offset: usize,
@@ -142,7 +146,14 @@ pub fn parse(data: &[u8]) -> Result<Option<SlotInfo>> {
     r.skip(regions * 4)?;
     r.skip(0x28)?; // torrent
     r.skip(1)?; // control byte
-    r.skip(0x44)?; // blood stain
+    // Blood stain: position (3 f32), angle (4 f32), 5 u32, i32, runes, map id, 2 u32.
+    let bloodstain = {
+        let mut b = Reader::at(data, r.pos);
+        let (x, y, z) = (b.f32()?, b.f32()?, b.f32()?);
+        let map_id = Reader::at(data, r.pos + 56).bytes(4)?;
+        (map_id != [0, 0, 0, 0] && map_id != [0xFF; 4]).then(|| Position { x, y, z, map: map_name(map_id) })
+    };
+    r.skip(0x44)?;
     r.skip(8)?;
     r.skip(4)?; // menu profile save/load
     let menu = counted(&mut r, "menu save data", 0x10000)?;
@@ -152,7 +163,9 @@ pub fn parse(data: &[u8]) -> Result<Option<SlotInfo>> {
     r.skip(4)?; // tutorial data
     let tutorial = counted(&mut r, "tutorial data", 0x10000)?;
     r.skip(tutorial)?;
-    r.skip(3 + 26)?; // GameMan bytes, deaths, last grace, timers...
+    r.skip(3)?; // GameMan bytes
+    let deaths = r.u32()?;
+    r.skip(22)?; // character type, session flags, last grace, timers...
 
     let flags_offset = r.pos;
     r.skip(EVENT_FLAGS_SIZE + 1)?;
@@ -172,5 +185,5 @@ pub fn parse(data: &[u8]) -> Result<Option<SlotInfo>> {
     })()
     .ok();
 
-    Ok(Some(SlotInfo { version, name, level, flags_offset, position, stats, runes, runes_offset, inventory }))
+    Ok(Some(SlotInfo { version, name, level, flags_offset, position, stats, deaths, bloodstain, runes, runes_offset, inventory }))
 }

@@ -74,6 +74,8 @@ class Tracker {
 
   private apply(update: Update, live: boolean) {
     this.snapshot = update.snapshot;
+    // The backend writes the journal line before emitting the update.
+    import("./journal.svelte").then(({ journal }) => journal.reload());
     if (!live) return;
     const at = update.snapshot.loaded_at;
     const items = [

@@ -1,4 +1,5 @@
 pub mod extract;
+pub mod journal;
 mod maps;
 pub mod pathfind;
 pub mod paths;
@@ -80,6 +81,12 @@ async fn find_path(map: String, from: pathfind::Point, to: pathfind::Point) -> R
     .map_err(|e| e.to_string())?
 }
 
+/// Recorded history of the current character (one entry per save that changed something).
+#[tauri::command]
+fn get_journal(state: State<TrackerState>) -> Vec<journal::Record> {
+    state.lock().unwrap().journal()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -88,10 +95,11 @@ pub fn run() {
         .setup(|app| {
             maps::init(app.handle());
             let config = app.path().app_config_dir()?.join("config.json");
-            app.manage::<TrackerState>(std::sync::Mutex::new(Tracker::new(config)));
+            let journal = app.path().app_data_dir()?.join("journal");
+            app.manage::<TrackerState>(std::sync::Mutex::new(Tracker::new(config, journal)));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![list_saves, find_game_dir, load_state, select, map_status, extract_maps, game_running, set_runes, find_path])
+        .invoke_handler(tauri::generate_handler![list_saves, find_game_dir, load_state, select, map_status, extract_maps, game_running, set_runes, find_path, get_journal])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

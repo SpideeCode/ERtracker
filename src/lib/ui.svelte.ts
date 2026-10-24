@@ -6,6 +6,7 @@ export type View =
   | { kind: "items" }
   | { kind: "builds" }
   | { kind: "runes" }
+  | { kind: "stats" }
   | { kind: "quests" };
 
 /** A place to centre the map on, e.g. a grace named in a route. */

@@ -29,7 +29,7 @@ pub enum MapId {
     M11,
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct MapPos {
     pub map: MapId,
     /// Pixels on the level-0 image, from the top-left corner.

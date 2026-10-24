@@ -45,6 +45,8 @@ pub struct Character {
     pub position: Option<Position>,
     pub stats: [u32; 8],
     pub inventory: Vec<u32>,
+    pub deaths: u32,
+    pub bloodstain: Option<Position>,
     pub runes: u32,
     /// Absolute offset of the held runes (u32, little-endian) in the save file.
     pub runes_offset: usize,
@@ -116,6 +118,8 @@ impl SaveFile {
                 checksum_ok,
                 position: info.position,
                 stats: info.stats,
+                deaths: info.deaths,
+                bloodstain: info.bloodstain,
                 runes: info.runes,
                 runes_offset: body_start + info.runes_offset,
                 body: body_start..body_start + slot::SLOT_SIZE,
