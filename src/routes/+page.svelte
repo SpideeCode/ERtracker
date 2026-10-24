@@ -7,6 +7,7 @@
   import Sheet from "$lib/components/Sheet.svelte";
   import GlobalSearch from "$lib/components/GlobalSearch.svelte";
   import Notifications from "$lib/components/Notifications.svelte";
+  import Welcome from "$lib/components/Welcome.svelte";
   import Builds from "$lib/components/Builds.svelte";
   import Stats from "$lib/components/Stats.svelte";
   import Explore from "$lib/components/Explore.svelte";
@@ -18,10 +19,12 @@
   import { ui } from "$lib/ui.svelte";
 
   let now = $state(Date.now());
+  let prefsLoaded = $state(false);
   const view = $derived(ui.view);
 
   onMount(() => {
     prefs.load();
+    prefsLoaded = true;
     tracker.start();
     mapdata.init();
     const timer = setInterval(() => (now = Date.now()), 1000);
@@ -123,6 +126,8 @@
     {/if}
   </div>
 
+  {#if prefsLoaded && !prefs.welcomed}<Welcome />{/if}
+
   <div class="toasts">
     {#each tracker.toasts as t (t.key)}
       <button class="toast" onclick={() => ui.open(t.id)} title="Ouvrir la fiche">
@@ -146,7 +151,59 @@
     --gold: #c9a95b;
     --gold-dim: #7d6a3c;
     --danger: #d16a5a;
+    --font-title: "Cinzel", Georgia, serif;
     color-scheme: dark;
+  }
+  :global(main h2) {
+    font-family: var(--font-title);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  /* Shared buttons: primary for the main action of a card, ghost for the others. */
+  :global(button.primary),
+  :global(button.ghost) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 7px;
+    padding: 7px 14px;
+    font: inherit;
+    cursor: pointer;
+  }
+  :global(button.primary) {
+    background: var(--gold);
+    border: 1px solid var(--gold);
+    color: #1a1508;
+    font-weight: 600;
+  }
+  :global(button.primary:hover) {
+    filter: brightness(1.08);
+  }
+  :global(button.ghost) {
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+  }
+  :global(button.ghost:hover) {
+    border-color: var(--gold-dim);
+  }
+  :global(button.primary:disabled),
+  :global(button.ghost:disabled) {
+    opacity: 0.45;
+    cursor: default;
+    filter: none;
+  }
+  :global(.with-icon) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  :global(.lock) {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-left: 6px;
+    color: #d39b45;
   }
   :global(body) {
     margin: 0;
@@ -205,7 +262,7 @@
     max-width: 280px;
   }
   .brand {
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-title);
     font-size: 18px;
     letter-spacing: 0.08em;
     color: var(--gold);

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { TriangleAlert } from "@lucide/svelte";
   // Sets the held runes in the save file, with the game closed.
   import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
@@ -45,10 +46,9 @@
   }
 </script>
 
-<h2>Runes</h2>
 
 <section class="warning">
-  <h3>⚠ À lire avant de modifier</h3>
+  <h3 class="with-icon"><TriangleAlert size={14} /> À lire avant de modifier</h3>
   <ul>
     <li>
       <strong>Ferme complètement Elden Ring.</strong> Le jeu garde la sauvegarde en mémoire et l'écraserait à sa prochaine
@@ -127,9 +127,6 @@
 {/if}
 
 <style>
-  h2 {
-    margin: 0 0 12px;
-  }
   h3 {
     margin: 0 0 8px;
     font-size: 14px;
@@ -212,19 +209,5 @@
     align-items: center;
     margin: 8px 0 12px;
     cursor: pointer;
-  }
-  .primary {
-    background: var(--gold);
-    color: #1a1508;
-    border: none;
-    border-radius: 6px;
-    padding: 9px 16px;
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .primary:disabled {
-    opacity: 0.45;
-    cursor: default;
   }
 </style>

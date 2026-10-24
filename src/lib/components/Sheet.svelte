@@ -134,7 +134,7 @@
   /* Shared by the sheets rendered inside. */
   .sheet :global(h2) {
     margin: 10px 40px 2px 0;
-    font-family: Georgia, serif;
+    font-family: var(--font-title);
     font-weight: 500;
     font-size: 24px;
     line-height: 1.2;

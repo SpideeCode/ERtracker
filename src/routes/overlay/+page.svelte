@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Skull } from "@lucide/svelte";
   // In-game overlay HUD: a transparent always-on-top window over the game
   // (borderless windowed). Click-through until Ctrl+Shift+I.
   import { onMount } from "svelte";
@@ -119,7 +120,7 @@
       {/if}
 
       <div class="block row">
-        <span>☠ {tracker.character?.deaths.toLocaleString("fr-FR") ?? "—"}</span>
+        <span class="deaths"><Skull size={14} /> {tracker.character?.deaths.toLocaleString("fr-FR") ?? "—"}</span>
         {#if session}<span class="muted">session : {session.deaths} mort{session.deaths > 1 ? "s" : ""}</span>{/if}
       </div>
     {/if}
@@ -204,7 +205,7 @@
     margin-bottom: 6px;
   }
   .brand {
-    font-family: Georgia, serif;
+    font-family: "Cinzel", Georgia, serif;
     color: #c9a95b;
     letter-spacing: 0.06em;
   }
@@ -233,6 +234,11 @@
   }
   .done {
     color: #6fbf73;
+  }
+  .deaths {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
   }
   .row {
     display: flex;
@@ -323,7 +329,7 @@
     color: #c9a95b;
   }
   .toast-name {
-    font-family: Georgia, serif;
+    font-family: "Cinzel", Georgia, serif;
     font-size: 18px;
   }
   @keyframes slide {

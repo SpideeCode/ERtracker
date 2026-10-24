@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Lock } from "@lucide/svelte";
   import { db, tracker } from "$lib/tracker.svelte";
   import { spoiler } from "$lib/spoiler.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
@@ -72,7 +73,7 @@
           <div class="name">
             {spoiler.name(r.e.id, r.name)}
             {#if r.sheet?.legendary}<span class="legend" title="Boss légendaire">★</span>{/if}
-            {#if !r.done && locked(r.e)}<span class="lock" title="Accès à débloquer (voir la fiche)">🔒</span>{/if}
+            {#if !r.done && locked(r.e)}<span class="lock" title="Accès à débloquer (voir la fiche)"><Lock size={13} /></span>{/if}
           </div>
           <div class="muted small">{r.region}</div>
         </td>

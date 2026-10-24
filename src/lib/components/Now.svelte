@@ -2,7 +2,7 @@
   // Home: what matters right now. Where you are, the next boss, where to go, this session.
   import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
-  import { MapPin, Swords, Telescope, Map as MapIcon, Layers, BookOpen, Skull, Trophy } from "@lucide/svelte";
+  import { MapPin, Swords, Telescope, Map as MapIcon, Layers, BookOpen, Skull, Trophy, Lock } from "@lucide/svelte";
   import { db, describe, tracker } from "$lib/tracker.svelte";
   import { spoiler } from "$lib/spoiler.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
@@ -113,7 +113,7 @@
   <section class="card">
     <div class="kicker"><Swords size={14} /> Prochain boss</div>
     {#if nextBoss}
-      <h3>{spoiler.name(nextBoss.b.id, gamedata.name(nextBoss.b))}{nextSheet?.legendary ? " ★" : ""}{nextBoss.locked ? " 🔒" : ""}</h3>
+      <h3>{spoiler.name(nextBoss.b.id, gamedata.name(nextBoss.b))}{nextSheet?.legendary ? " ★" : ""}{#if nextBoss.locked}<span class="lock" title="Accès à débloquer"><Lock size={16} /></span>{/if}</h3>
       <p class="muted">
         {formatDistance(nextBoss.d)} vers le {nextBoss.dir}{nextSheet?.runes ? ` · ${nextSheet.runes.toLocaleString("fr-FR")} runes` : ""}{nextTries
           ? ` · ${nextTries} essai${nextTries > 1 ? "s" : ""}`
@@ -240,7 +240,7 @@
   h2,
   h3 {
     margin: 0;
-    font-family: Georgia, serif;
+    font-family: var(--font-title);
     font-weight: 500;
   }
   h2 {
@@ -266,30 +266,6 @@
     display: flex;
     gap: 8px;
     margin-top: 4px;
-  }
-  .primary,
-  .ghost {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border-radius: 7px;
-    padding: 7px 14px;
-    font: inherit;
-    cursor: pointer;
-  }
-  .primary {
-    background: var(--gold);
-    color: #1a1508;
-    border: none;
-    font-weight: 600;
-  }
-  .ghost {
-    background: var(--surface-2);
-    border: 1px solid var(--border-strong);
-    color: var(--text);
-  }
-  .ghost:hover {
-    border-color: var(--gold-dim);
   }
   .link {
     align-self: flex-start;

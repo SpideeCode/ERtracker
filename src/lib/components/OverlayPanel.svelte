@@ -18,7 +18,6 @@
   }
 </script>
 
-<h2>Overlay en jeu</h2>
 <p class="muted">
   Un petit panneau ERtracker affiché par-dessus le jeu : boss le plus proche (distance, direction, essais), ce qu'il
   reste dans ta zone, tes morts de la session, et les notifications quand tu bats un boss ou trouves un objet.
@@ -43,9 +42,6 @@
 </section>
 
 <style>
-  h2 {
-    margin: 0 0 8px;
-  }
   .card {
     margin-top: 14px;
     background: var(--surface);
@@ -79,25 +75,6 @@
     display: flex;
     gap: 8px;
     margin-top: 10px;
-  }
-  .primary {
-    background: var(--gold);
-    color: #1a1508;
-    border: none;
-    border-radius: 6px;
-    padding: 8px 14px;
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .ghost {
-    background: none;
-    border: 1px solid var(--border-strong);
-    color: var(--text);
-    border-radius: 6px;
-    padding: 8px 14px;
-    font: inherit;
-    cursor: pointer;
   }
   .error {
     color: var(--danger);

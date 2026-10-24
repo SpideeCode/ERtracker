@@ -234,18 +234,6 @@
   .walk p {
     margin: 8px 0;
   }
-  .primary {
-    width: 100%;
-    margin-top: 4px;
-    background: var(--gold);
-    color: #1a1508;
-    border: none;
-    border-radius: 6px;
-    padding: 9px 14px;
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-  }
   .secondary {
     width: 100%;
     margin: 0 0 8px;
@@ -289,5 +277,9 @@
   }
   .graces li:not(.discovered) {
     color: var(--text-dim);
+  }
+  .primary {
+    width: 100%;
+    margin-top: 4px;
   }
 </style>

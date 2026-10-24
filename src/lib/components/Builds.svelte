@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Shield, Feather } from "@lucide/svelte";
   import { gamedata } from "$lib/gamedata.svelte";
   import { catalog } from "$lib/catalog.svelte";
   import { tracker } from "$lib/tracker.svelte";
@@ -156,7 +157,7 @@
           <h4>{SLOTS[slot.slot]}</h4>
           {#each [...slot.heavy.slice(0, 2), ...slot.light.slice(0, 2)] as a, i (a.id + "-" + i)}
             <button class="armor-row" onclick={() => open(3, a.id)}>
-              <span>{i < 2 ? "🛡" : "🪶"} {a.name.fr ?? a.name.en}</span>
+              <span class="with-icon">{#if i < 2}<Shield size={13} />{:else}<Feather size={13} />{/if} {a.name.fr ?? a.name.en}</span>
               <span class="muted small">{a.weight} · {catalog.isOwned(3, a.id) ? "possédé" : ""}</span>
             </button>
           {/each}

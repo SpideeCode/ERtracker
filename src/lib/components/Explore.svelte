@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Lock } from "@lucide/svelte";
   // "Explorer": zones with things left, without spoilers unless asked.
   import { db } from "$lib/tracker.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
@@ -106,7 +107,7 @@
             {z.visited ? " · déjà visitée" : " · jamais visitée"}
           </div>
         </div>
-        {#if isLocked}<span class="lock" title="Accès à débloquer">🔒</span>{/if}
+        {#if isLocked}<span class="lock" title="Accès à débloquer"><Lock size={13} /></span>{/if}
       </header>
       <div class="bar"><div style="width: {Math.round(progress(z) * 100)}%"></div></div>
       <ul class="left">
@@ -197,7 +198,7 @@
   }
   h3 {
     margin: 0;
-    font-family: Georgia, serif;
+    font-family: var(--font-title);
     font-weight: 500;
     color: var(--gold);
   }
@@ -225,25 +226,6 @@
   .actions {
     display: flex;
     gap: 8px;
-  }
-  .primary {
-    background: var(--gold);
-    color: #1a1508;
-    border: none;
-    border-radius: 6px;
-    padding: 6px 12px;
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .ghost {
-    background: none;
-    border: 1px solid var(--border-strong);
-    color: var(--text-dim);
-    border-radius: 6px;
-    padding: 6px 12px;
-    font: inherit;
-    cursor: pointer;
   }
   .spoil {
     list-style: none;

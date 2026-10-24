@@ -67,6 +67,13 @@
       <input type="checkbox" bind:checked={prefs.sidebarCollapsed} onchange={() => prefs.save()} />
       <span><strong>Menu replié</strong> <span class="muted small">Seulement les icônes, pour laisser plus de place.</span></span>
     </label>
+    <button
+      class="ghost"
+      onclick={() => {
+        prefs.welcomed = false;
+        prefs.save();
+      }}>Revoir la présentation</button
+    >
   </section>
 
   <section class="card">
@@ -144,15 +151,6 @@
   }
   .small {
     font-size: 12px;
-  }
-  .ghost {
-    background: none;
-    border: 1px solid var(--border-strong);
-    color: var(--text);
-    border-radius: 6px;
-    padding: 6px 12px;
-    font: inherit;
-    cursor: pointer;
   }
   .error {
     color: var(--danger);

@@ -63,21 +63,6 @@
   .small {
     font-size: 12px;
   }
-  .primary {
-    margin-top: 12px;
-    background: var(--gold);
-    color: #1a1508;
-    border: none;
-    border-radius: 6px;
-    padding: 9px 18px;
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .primary:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
   .bar {
     margin-top: 16px;
     height: 8px;
@@ -96,5 +81,8 @@
     color: var(--danger);
     padding: 8px 10px;
     border-radius: 6px;
+  }
+  .primary {
+    margin-top: 12px;
   }
 </style>

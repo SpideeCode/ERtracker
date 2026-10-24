@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Lock, LockOpen } from "@lucide/svelte";
   // "Conditions d'accès" for a boss behind a quest, key item or story progress.
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { accessRules } from "$lib/accessCheck.svelte";
@@ -16,7 +17,7 @@
 
 {#each rules as rule}
   <section class="access" class:met={rule.met}>
-    <h3>{rule.met ? "✓ Accès débloqué" : "🔒 Conditions d'accès"}</h3>
+    <h3 class="with-icon">{#if rule.met}<LockOpen size={13} /> Accès débloqué{:else}<Lock size={13} /> Conditions d'accès{/if}</h3>
     <p>{rule.text}</p>
     {#if rule.checks.length}
       <ul>
