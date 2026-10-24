@@ -258,6 +258,18 @@ ERtracker/
 
 **Ordre critique** : les phases 1 et 2 prouvent que le live fonctionne ; la phase 3 et ses données sont ce qui demande le plus de travail. On commence avec boss et grâces parce qu'ils ont peu d'entrées et des flags bien documentés, puis on étend.
 
+### Refonte UI/UX (2026-10-24)
+
+L'app a grandi par ajouts successifs, et on s'y perdait. Le but est que l'essentiel soit à portée de main et que le reste soit rangé.
+
+| Étape | Contenu | État |
+|---|---|---|
+| **1. Espaces** | Menu latéral à 6 espaces (Maintenant, Carte, Progression, Explorer, Mon aventure, Builds) plus Réglages ; Progression en onglets (Boss, Objets, Grâces, Quêtes, Collections) ; page Réglages (Général, Overlay, Runes) | Fait |
+| **2. Maintenant** | Page d'accueil : où tu es, prochain boss et essais, session en cours, où aller ensuite, progression, raccourcis | Fait |
+| **3. Carte** | Panneau de calques repliable : Lieux (grâces, boss, donjons avec fait/total), Objets (catégories en pastilles qui servent de légende, préréglages), Mon parcours (voyage, exploration, morts), Légende ; recherche intégrée qui saute au repère ; bouton « ma position » ; choix mémorisés | Fait |
+| **4. Confort** | Retour arrière dans les fiches, centre de notifications, mode sans spoil appliqué partout, raccourcis clavier (Ctrl+K, Échap, M) | À faire |
+| **5. Finitions** | Police de titre, icônes Lucide à la place des emojis, boutons et pastilles uniformes, premier lancement guidé | À faire |
+
 ---
 
 ## 9. Risques et solutions

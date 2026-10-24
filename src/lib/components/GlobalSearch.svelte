@@ -1,75 +1,15 @@
 <script lang="ts">
-  // Header search over bosses, graces and items, in French or English.
-  import { db, tracker } from "$lib/tracker.svelte";
-  import { gamedata } from "$lib/gamedata.svelte";
-  import { categoryById, pickupCategory, pickupTitle } from "$lib/items";
+  // Header search: opens the sheet of what was picked.
+  import { search, type SearchResult } from "$lib/search.svelte";
   import { ui } from "$lib/ui.svelte";
-
-  interface Result {
-    id: string;
-    title: string;
-    subtitle: string;
-    kind: string;
-    color: string;
-    done: boolean;
-    rank: number;
-  }
 
   let query = $state("");
   let open = $state(false);
   let selected = $state(0);
 
-  const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const results = $derived(search(query));
 
-  const results = $derived.by((): Result[] => {
-    const q = normalize(query.trim());
-    if (q.length < 2) return [];
-    // Prefix matches first, then matches anywhere.
-    const rankOf = (...names: (string | null | undefined)[]) => {
-      let best = Infinity;
-      for (const n of names) {
-        if (!n) continue;
-        const i = normalize(n).indexOf(q);
-        if (i === 0) best = Math.min(best, 0);
-        else if (i > 0) best = Math.min(best, 1);
-      }
-      return best;
-    };
-    const out: Result[] = [];
-    for (const e of db.entries) {
-      if (e.category !== "boss" && e.category !== "grace") continue;
-      const fr = gamedata.name(e);
-      const rank = rankOf(fr, e.name);
-      if (rank === Infinity) continue;
-      out.push({
-        id: e.id,
-        title: fr,
-        subtitle: fr !== e.name ? e.name : (gamedata.region(e) ?? ""),
-        kind: e.category === "boss" ? "Boss" : "Grâce",
-        color: e.category === "boss" ? "#e0574a" : "#e8c46a",
-        done: tracker.completed.has(e.id),
-        rank,
-      });
-    }
-    for (const [id, p] of gamedata.items) {
-      const rank = Math.min(...p.items.map((i) => rankOf(i.name.fr, i.name.en)));
-      if (rank === Infinity) continue;
-      const first = p.items[0];
-      const cat = categoryById.get(pickupCategory(p));
-      out.push({
-        id,
-        title: pickupTitle(p),
-        subtitle: first.name.fr && first.name.fr !== first.name.en ? first.name.en : (cat?.name ?? ""),
-        kind: "Objet",
-        color: cat?.color ?? "#ccc",
-        done: tracker.completed.has(id),
-        rank: rank + 0.5,
-      });
-    }
-    return out.sort((a, b) => a.rank - b.rank || Number(a.done) - Number(b.done) || a.title.localeCompare(b.title)).slice(0, 14);
-  });
-
-  function choose(r: Result | undefined) {
+  function choose(r: SearchResult | undefined) {
     if (!r) return;
     ui.sheet = r.id;
     open = false;
