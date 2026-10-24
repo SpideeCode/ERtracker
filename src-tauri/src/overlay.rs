@@ -78,10 +78,16 @@ pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             if event.state() != ShortcutState::Pressed {
                 return;
             }
+            // The handler runs on the event loop: creating a window here would deadlock.
+            let app = app.clone();
             if *shortcut == toggle_shortcut() {
-                let _ = toggle(app);
+                tauri::async_runtime::spawn(async move {
+                    let _ = toggle(&app);
+                });
             } else if *shortcut == interact_shortcut() {
-                let _ = set_interactive(app, !INTERACTIVE.load(Ordering::SeqCst));
+                tauri::async_runtime::spawn(async move {
+                    let _ = set_interactive(&app, !INTERACTIVE.load(Ordering::SeqCst));
+                });
             }
         })
         .build()

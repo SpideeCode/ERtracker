@@ -24,3 +24,14 @@ cargo run --release --bin ertracker-dump -- C:\chemin\ER0000.sl2
 ## Données
 
 `data/db.json` est généré par `python -I tools/import_esm.py` à partir des fichiers de `third_party/er-save-manager/` (licence MIT, voir `SOURCE.md`).
+
+## Déboguer l'app en cours d'exécution
+
+`npm run dev:debug` lance l'app avec le port DevTools de WebView2 ouvert (9222). Ensuite :
+
+```sh
+node tools/cdp.mjs targets                         # fenêtres ouvertes
+node tools/cdp.mjs shot main capture.png           # capture de la fenêtre principale (ou "overlay")
+node tools/cdp.mjs eval main "document.title"      # exécuter du JS dans la page
+node tools/cdp.mjs console overlay 5               # messages et erreurs de la console
+```

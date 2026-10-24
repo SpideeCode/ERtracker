@@ -88,13 +88,14 @@ fn get_journal(state: State<TrackerState>) -> Vec<journal::Record> {
     state.lock().unwrap().journal()
 }
 
+// Async: on Windows, creating a window from a synchronous command deadlocks the event loop.
 #[tauri::command]
-fn toggle_overlay(app: AppHandle) -> Result<bool, String> {
+async fn toggle_overlay(app: AppHandle) -> Result<bool, String> {
     overlay::toggle(&app)
 }
 
 #[tauri::command]
-fn set_overlay_interactive(app: AppHandle, on: bool) -> Result<(), String> {
+async fn set_overlay_interactive(app: AppHandle, on: bool) -> Result<(), String> {
     overlay::set_interactive(&app, on)
 }
 
