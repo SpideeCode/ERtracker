@@ -13,6 +13,7 @@
   import { zoneData } from "$lib/zoneData.svelte";
   import { search, type SearchResult } from "$lib/search.svelte";
   import { spoiler } from "$lib/spoiler.svelte";
+  import { prefs } from "$lib/prefs.svelte";
   import type { Entry, MapId, MapInfo, MarkerPos } from "$lib/types";
   import type { Snippet } from "svelte";
   import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, LocateFixed, Search } from "@lucide/svelte";
@@ -26,6 +27,8 @@
     M11: "Souterrain (DLC)",
   };
   const KIND_COLORS: Record<string, string> = { grace: "#e8c46a", boss: "#e0574a" };
+  /** Starscourge Radahn: his defeat makes the star fall in Mistwood. */
+  const RADAHN = "boss:1252380800";
   const DONE_COLOR = "#5fae6a";
 
   let el: HTMLDivElement;
@@ -255,6 +258,26 @@
           .addTo(markerLayer);
         count++;
       });
+    }
+    // World state: the star falls in Mistwood once Radahn is defeated (the game only adds a marker).
+    const craterIndex = gamedata.places.findIndex((p) => p.name.en === "Starfall Crater");
+    const crater = gamedata.places[craterIndex];
+    if (crater && crater.map === current) {
+      const fallen = done.has(RADAHN);
+      if (fallen || !prefs.spoilerFree) {
+        const id = `place:${craterIndex}`;
+        L.marker(toLatLng(crater.x, crater.y), {
+          icon: L.divIcon({ className: `crater-icon${fallen ? "" : " pending"}${id === selected ? " selected" : ""}`, iconSize: [26, 26] }),
+        })
+          .bindTooltip(
+            fallen
+              ? "Cratère stellaire : l'étoile est tombée, accès à Nokron, la cité éternelle"
+              : "Cratère stellaire : l'étoile tombera ici une fois Radahn vaincu",
+            { direction: "top", offset: [0, -12] },
+          )
+          .on("click", () => (ui.sheet = id))
+          .addTo(markerLayer);
+      }
     }
     shown = count;
   });
@@ -584,6 +607,7 @@
     <li><span class="dot done"></span> Fait : vaincu, découvert ou ramassé</li>
     <li><span class="dot me"></span> Toi, à la dernière sauvegarde</li>
     <li><span class="line route"></span> Itinéraire demandé depuis une fiche</li>
+    <li><span class="dot crater"></span> Cratère stellaire, selon ta partie (pointillé : pas encore tombé)</li>
   </ul>
 {/snippet}
 
@@ -934,6 +958,25 @@
   :global(.dungeon-icon.done) {
     background: #5fae6a;
     opacity: 0.75;
+  }
+  .dot.crater,
+  :global(.crater-icon) {
+    border-radius: 50%;
+    background: radial-gradient(circle, #1b1f3a 30%, #6a7bd6 60%, rgba(160, 180, 255, 0.2) 75%);
+    border: 2px solid #b8c4ff;
+    box-shadow: 0 0 10px #8a9cff;
+  }
+  :global(.crater-icon) {
+    cursor: pointer;
+  }
+  :global(.crater-icon.pending) {
+    background: none;
+    border: 2px dashed #8a9cff;
+    box-shadow: none;
+    opacity: 0.8;
+  }
+  :global(.crater-icon.selected) {
+    border-color: #5ab0ff;
   }
   :global(.dungeon-icon.selected) {
     border: 2px solid #5ab0ff;
