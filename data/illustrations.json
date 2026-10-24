@@ -1,0 +1,24 @@
+{
+  "_comment": "Loading screen scenes (MENU_Load_<n> in the game's menu textures) matched by eye to regions and bosses. Only sure matches; the rest serve as generic banners.",
+  "regions": {
+    "Limgrave": 0,
+    "Stormhill": 1,
+    "Stranded Graveyard": 1,
+    "Stormveil Castle": 17,
+    "Academy of Raya Lucaria": 7,
+    "Caelid": 27,
+    "Greyoll's Dragonbarrow": 27,
+    "Volcano Manor": 20,
+    "Leyndell, Royal Capital": 30,
+    "Capital Outskirts": 2,
+    "Altus Plateau": 2,
+    "Siofra River": 26,
+    "Nokron, Eternal City": 26
+  },
+  "bosses": {
+    "Night's Cavalry": 16,
+    "Tibia Mariner": 12,
+    "Erdtree Avatar": 8
+  },
+  "generic": [6, 0, 1, 5, 10, 14, 19, 24, 25, 28, 33]
+}

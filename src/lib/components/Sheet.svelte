@@ -132,6 +132,14 @@
     white-space: nowrap;
   }
   /* Shared by the sheets rendered inside. */
+  .sheet :global(img.art) {
+    display: block;
+    width: 150px;
+    height: 150px;
+    object-fit: contain;
+    margin: 4px auto 6px;
+    filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.7));
+  }
   .sheet :global(h2) {
     margin: 10px 40px 2px 0;
     font-family: var(--font-title);

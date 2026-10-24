@@ -76,6 +76,7 @@ struct AshOfWar {
     affinities: Vec<u8>,
     /// Skill (SwordArtsParam) it gives; weapons sharing it come with this Ash of War.
     skill: i32,
+    icon: u16,
 }
 
 #[derive(Serialize)]
@@ -111,6 +112,7 @@ struct Weapon {
     upgrade: String,
     /// Can take another Ash of War / affinity.
     infusable: bool,
+    icon: u16,
     /// Weapon type (wepType): dagger, straight sword...
     kind: u16,
     /// Skill (SwordArtsParam) it comes with.
@@ -132,6 +134,7 @@ struct Armor {
     /// Immunity, robustness, focus, vitality.
     resistance: [u16; 4],
     poise: f32,
+    icon: u16,
 }
 
 #[derive(Serialize)]
@@ -143,6 +146,7 @@ struct Talisman {
     weight: f32,
     /// Talismans of the same group cannot be worn together.
     group: i16,
+    icon: u16,
 }
 
 #[derive(Serialize)]
@@ -153,6 +157,7 @@ struct Goods {
     goods_type: u8,
     rarity: u8,
     spell: Option<Spell>,
+    icon: u16,
 }
 
 #[derive(Serialize)]
@@ -292,6 +297,7 @@ pub fn extract(params: &HashMap<String, Vec<u8>>, en: &HashMap<String, Fmg>, fr:
             max_level,
             upgrade: key,
             infusable: u8_(d, 0x241) == 2,
+            icon: u16_(d, 0xbe),
             kind: u16_(d, 0x1a6),
             skill: i32_(d, 0x198),
             variants: (0..13u8)
@@ -376,7 +382,9 @@ pub fn extract(params: &HashMap<String, Vec<u8>>, en: &HashMap<String, Fmg>, fr:
                 slot: u8_(d, 0xd6),
                 absorption: [0xe4, 0xec, 0xe8, 0xf0, 0xf4, 0xf8, 0xfc, 0x11c].map(|o| cut(d, o)),
                 resistance: [u16_(d, 0xc4), u16_(d, 0xc8), u16_(d, 0x0c), u16_(d, 0xca)],
-                poise: (f32_(d, 0x14) * 1000.0).round() / 10.0,
+                // Stored as a fraction: 0.031 shows as 31 in game.
+                poise: (f32_(d, 0x14) * 10000.0).round() / 10.0,
+                icon: u16_(d, 0xa6),
             })
         })
         .collect();
@@ -394,6 +402,7 @@ pub fn extract(params: &HashMap<String, Vec<u8>>, en: &HashMap<String, Fmg>, fr:
                 rarity: u8_(d, 0x41),
                 weight: (f32_(d, 0xc) * 10.0).round() / 10.0,
                 group: i16_(d, 0x48),
+                icon: u16_(d, 0x26),
             })
         })
         .collect();
@@ -429,6 +438,7 @@ pub fn extract(params: &HashMap<String, Vec<u8>>, en: &HashMap<String, Fmg>, fr:
                 info: text.get("GoodsInfo", id),
                 goods_type,
                 rarity: u8_(d, 0x78),
+                icon: u16_(d, 0x30),
                 spell: magic.get(id).map(|m| Spell {
                     fp: i16_(m, 0x10),
                     slots: u8_(m, 0x21),
@@ -452,6 +462,7 @@ pub fn extract(params: &HashMap<String, Vec<u8>>, en: &HashMap<String, Fmg>, fr:
                 mounts: (0..MOUNT_TYPES.len()).filter(|&i| bit(0x38, i)).map(|i| MOUNT_TYPES[i]).filter(|&t| t > 0).collect(),
                 affinities: (0..13u8).filter(|&a| bit(0x30, a as usize)).collect(),
                 skill: i32_(g, 0x18),
+                icon: u16_(g, 0x4),
             })
         })
         .collect();

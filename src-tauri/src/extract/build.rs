@@ -74,7 +74,7 @@ struct Place {
     pos: MapPos,
 }
 
-pub const FORMAT: u32 = 8;
+pub const FORMAT: u32 = 10;
 pub const LEGACY_CONV_FILE: &str = "legacy_conv.param";
 pub const WALKABLE_FILE: &str = "walkable.bin";
 
@@ -144,6 +144,8 @@ pub fn build(game_root: &Path, out: &Path, mut progress: impl FnMut(Progress)) -
         maps.push(MapInfo { id: map, width: w * TILE, height: h * TILE, max_zoom: MAX_ZOOM, min_zoom: MIN_ZOOM });
     }
 
+    // Illustrations are read from the game on demand: remember where it is.
+    std::fs::write(out.join("game_dir.txt"), game_root.to_string_lossy().as_bytes())?;
     let manifest = Manifest { format: FORMAT, game_build: game_build(&game), maps };
     std::fs::write(out.join("manifest.json"), serde_json::to_vec_pretty(&manifest).map_err(|e| ExtractError::new(e.to_string()))?)?;
     Ok(manifest)

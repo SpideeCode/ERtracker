@@ -91,6 +91,11 @@ class Tracker {
     }
   }
 
+  /** A notification that does not come from the save diff (e.g. an achievement). */
+  notify(id: string, label: string, category: string) {
+    this.toast(id, label, category);
+  }
+
   private toast(id: string, label: string, category: string) {
     const key = ++this.toastKey;
     this.toasts = [...this.toasts, { key, id, label, category }].slice(-4);

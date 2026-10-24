@@ -1,4 +1,4 @@
-export type ProgressTab = "bosses" | "items" | "graces" | "quests" | "collections";
+export type ProgressTab = "overview" | "bosses" | "items" | "graces" | "quests" | "collections";
 export type SettingsTab = "general" | "overlay" | "runes";
 
 export type View =
@@ -73,6 +73,7 @@ class Ui {
   /** Opens whatever a completed id refers to: a quest step unfolds its quest, the rest has a sheet. */
   open(id: string) {
     if (id.startsWith("quest:")) this.openQuest(id.split("#")[0]);
+    else if (id.startsWith("achievement:")) this.progress("overview");
     else this.sheet = id;
   }
 

@@ -41,6 +41,24 @@ class CatalogLookup {
     return this.locations.get(`${cat}:${cat === 2 ? Math.floor(id / 10000) * 10000 : id}`) ?? [];
   }
 
+  /** Artwork id of an item, 0 when unknown. cat: 1 goods, 2 weapon, 3 armour, 4 talisman, 5 ash of war */
+  icon(cat: number, id: number): number {
+    switch (cat) {
+      case 1:
+        return this.goods.get(id)?.icon ?? 0;
+      case 2:
+        return this.weapons.get(Math.floor(id / 10000) * 10000)?.icon ?? 0;
+      case 3:
+        return this.armor.get(id)?.icon ?? 0;
+      case 4:
+        return this.talismans.get(id)?.icon ?? 0;
+      case 5:
+        return this.ashesOfWar.get(id)?.icon ?? 0;
+      default:
+        return 0;
+    }
+  }
+
   rarity(cat: number, id: number): number {
     switch (cat) {
       case 1:

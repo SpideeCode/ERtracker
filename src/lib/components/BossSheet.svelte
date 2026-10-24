@@ -5,6 +5,7 @@
   import { mapdata } from "$lib/mapdata.svelte";
   import RouteCard from "./RouteCard.svelte";
   import AccessCard from "./AccessCard.svelte";
+  import { bossScene, dropIcon, regionScene } from "$lib/art";
 
   let { id }: { id: string } = $props();
 
@@ -17,6 +18,8 @@
   const done = $derived(tracker.completed.has(id));
   const englishBase = $derived(entry.name.split(" (")[0]);
   const name = $derived(gamedata.name(entry));
+  const scene = $derived(bossScene(entry) ?? regionScene(entry.region));
+  const drop = $derived(dropIcon(gamedata.catalog, sheet?.remembrance?.en));
 
   // Damage types and status effects worth using, and the ones to avoid.
   const weak = $derived.by(() => {
@@ -50,6 +53,7 @@
   );
 </script>
 
+<div class="banner" style="background-image: url({scene})"></div>
 <header>
   <div class="badges">
     <span class="badge" class:ok={done}>{done ? "Vaincu ✓" : "À vaincre"}</span>
@@ -62,7 +66,10 @@
     {#if sheet?.runes}<span>{sheet.runes.toLocaleString("fr-FR")} runes</span>{/if}
   </div>
   {#if sheet?.remembrance}
-    <div class="remembrance">Donne : <strong>{sheet.remembrance.fr ?? sheet.remembrance.en}</strong></div>
+    <div class="remembrance">
+      {#if drop}<img src={drop} alt="" />{/if}
+      <span>Donne : <strong>{sheet.remembrance.fr ?? sheet.remembrance.en}</strong></span>
+    </div>
   {/if}
 </header>
 
@@ -125,6 +132,25 @@
   .remembrance {
     margin-top: 6px;
     color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .remembrance img {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px #000);
+  }
+  .banner {
+    margin: -20px -20px 0;
+    height: 170px;
+    background: center 35% / cover no-repeat var(--bg);
+    mask-image: linear-gradient(to bottom, #000 45%, transparent);
+  }
+  .banner + header {
+    margin-top: -40px;
+    position: relative;
   }
   details {
     margin-top: 12px;

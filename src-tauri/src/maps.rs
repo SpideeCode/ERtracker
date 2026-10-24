@@ -104,11 +104,18 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     if rel.components().any(|c| !matches!(c, Component::Normal(_))) {
         return not_found();
     }
-    let Ok(body) = std::fs::read(dir(app).join(rel)) else {
+    let body = if rel.starts_with("img") {
+        // Illustrations are cut from the game the first time they are asked for.
+        crate::images::get(&dir(app), rel)
+    } else {
+        std::fs::read(dir(app).join(rel)).ok()
+    };
+    let Some(body) = body else {
         return not_found();
     };
     let (mime, cache) = match rel.extension().and_then(|e| e.to_str()) {
         Some("jpg") => ("image/jpeg", "max-age=86400"),
+        Some("png") => ("image/png", "max-age=86400"),
         // Rewritten by every extraction.
         Some("json") => ("application/json", "no-cache"),
         _ => ("application/octet-stream", "no-cache"),

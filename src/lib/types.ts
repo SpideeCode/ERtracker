@@ -143,6 +143,8 @@ export interface CatalogWeapon {
   max_level: number;
   upgrade: string;
   infusable: boolean;
+  /** Artwork id: img/icon/<icon>.png */
+  icon: number;
   /** Weapon type (wepType): 1 dagger, 3 straight sword, 13 katana... */
   kind: number;
   /** Skill it comes with (matches an Ash of War's skill). */
@@ -174,6 +176,7 @@ export interface AshOfWar {
   mounts: number[];
   affinities: number[];
   skill: number;
+  icon: number;
 }
 
 export interface ReinforceLevel {
@@ -203,6 +206,8 @@ export interface CatalogArmor {
   /** physical, strike, slash, pierce, magic, fire, lightning, holy */
   absorption: number[];
   resistance: number[];
+  poise: number;
+  icon: number;
 }
 
 export interface CatalogTalisman {
@@ -212,6 +217,7 @@ export interface CatalogTalisman {
   rarity: number;
   weight: number;
   group: number;
+  icon: number;
 }
 
 export interface CatalogGoods {
@@ -221,6 +227,7 @@ export interface CatalogGoods {
   goods_type: number;
   rarity: number;
   spell: { fp: number; slots: number; requirements: number[] } | null;
+  icon: number;
 }
 
 export interface Catalog {
@@ -243,6 +250,8 @@ export interface LotItem {
   name: { en: string; fr: string | null };
   count: number;
   goods_type: number | null;
+  /** Artwork id, when the game has one. */
+  icon?: number | null;
 }
 
 /** A place where items are picked up once (items.json). */

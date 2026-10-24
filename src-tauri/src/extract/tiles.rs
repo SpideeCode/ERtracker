@@ -112,7 +112,7 @@ fn load_masks(mtmskbnd: &[u8]) -> Result<HashMap<String, HashMap<u32, u32>>> {
 }
 
 /// First texture of a PC TPF, decoded to RGBA.
-fn decode_tpf(tpf: &[u8]) -> Result<RgbaImage> {
+pub fn decode_tpf(tpf: &[u8]) -> Result<RgbaImage> {
     if !tpf.starts_with(b"TPF\0") {
         return Err(ExtractError::new("not a TPF"));
     }

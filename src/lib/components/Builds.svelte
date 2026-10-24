@@ -1,7 +1,7 @@
 <script lang="ts">
   // Builds, from the character's own save: best weapons in hand, what a few more
   // items would bring, where to put the next levels, and the strongest builds.
-  import { Swords, PackagePlus, TrendingUp, Crown, Palette, MapPin, Hand, HandMetal } from "@lucide/svelte";
+  import { Swords, PackagePlus, TrendingUp, Crown, Palette, MapPin, Hand, HandMetal, Shield } from "@lucide/svelte";
   import { gamedata } from "$lib/gamedata.svelte";
   import { tracker } from "$lib/tracker.svelte";
   import { advisor, topBuilds, type Need, type Option, type TopBuild } from "$lib/buildAdvisor.svelte";
@@ -10,6 +10,8 @@
   import { catalog } from "$lib/catalog.svelte";
   import { ui } from "$lib/ui.svelte";
   import ThemeBuilds from "./ThemeBuilds.svelte";
+  import { ROLL_LIMIT, bestSet, equipLoad, type Goal, type Roll } from "$lib/armor";
+  import { iconUrl } from "$lib/art";
 
   type Tab = "mine" | "improve" | "best" | "themes";
   let tab = $state<Tab>(readTab());
@@ -77,6 +79,20 @@
   const damageLine = (ar: { byType: number[] }) =>
     ar.byType.map((v, t) => (v ? `${DAMAGE_TYPES[t]} ${v}` : "")).filter(Boolean).join(" · ");
   const ownsWeapon = (id: number) => advisor.own.weapons.has(id);
+
+  // Armour: best set under the weight that keeps the chosen roll, with the weapon in hand.
+  let roll = $state<Roll>("medium");
+  let goal = $state<Goal>("defense");
+  let ownedArmor = $state(true);
+  const SLOTS = ["Tête", "Torse", "Bras", "Jambes"];
+  const load = $derived(equipLoad(stats[2]));
+  const weaponWeight = $derived(studied?.weapon.weight ?? 0);
+  const budget = $derived(Math.max(0, load * ROLL_LIMIT[roll] - weaponWeight - 0.05));
+  const armorSet = $derived.by(() => {
+    const all = gamedata.catalog?.armor ?? [];
+    const pool = ownedArmor ? all.filter((p) => catalog.isOwned(3, p.id)) : all.filter((p) => p.weight > 0);
+    return bestSet(pool, budget, goal);
+  });
   /** "Cendres de guerre : Lame sacrée" -> "Lame sacrée" */
   const ashName = (a: { name: { fr: string | null; en: string } }) => (a.name.fr ?? a.name.en).replace(/^(Cendres de guerre|Ash of War)\s*:\s*/, "");
   /** The weapon as it is now, when the advice changes its affinity. */
@@ -133,6 +149,59 @@
         <li class="muted">Tu n'as pas encore d'arme de ce type : regarde l'onglet « M'améliorer ».</li>
       {/each}
     </ol>
+  </section>
+
+  <section class="card">
+    <div class="kicker"><Shield size={14} /> Armure conseillée</div>
+    <p class="muted small">
+      Charge max {load.toFixed(1)} (Endurance {stats[2]}). Pour une roulade {roll === "medium" ? "moyenne" : "légère"}, tout ton
+      équipement doit rester sous {(load * ROLL_LIMIT[roll]).toFixed(1)} : il reste <strong>{budget.toFixed(1)}</strong> pour l'armure
+      avec {studied?.name ?? "ton arme"} ({weaponWeight.toFixed(1)}).
+    </p>
+    <div class="controls">
+      <div class="segmented">
+        <button class:active={roll === "medium"} onclick={() => (roll = "medium")}>Roulade moyenne</button>
+        <button class:active={roll === "light"} onclick={() => (roll = "light")}>Légère</button>
+      </div>
+      <div class="segmented">
+        <button class:active={goal === "defense"} onclick={() => (goal = "defense")}>Priorité défense</button>
+        <button class:active={goal === "poise"} onclick={() => (goal = "poise")}>Priorité posture</button>
+      </div>
+      <div class="segmented">
+        <button class:active={ownedArmor} onclick={() => (ownedArmor = true)}>Mes armures</button>
+        <button class:active={!ownedArmor} onclick={() => (ownedArmor = false)}>Tout le jeu</button>
+      </div>
+    </div>
+    {#if armorSet && armorSet.pieces.length}
+      <div class="armor">
+        {#each [0, 1, 2, 3] as slot (slot)}
+          {@const p = armorSet.pieces.find((x) => x.slot === slot)}
+          <div class="piece">
+            {#if p && iconUrl(p.icon)}<img src={iconUrl(p.icon)} alt="" loading="lazy" />{:else}<span class="empty"></span>{/if}
+            <span class="muted small">{SLOTS[slot]}</span>
+            {#if p}
+              <button class="name small" onclick={() => (ui.sheet = `equip:3:${p.id}`)}>{p.name.fr ?? p.name.en}</button>
+              <span class="muted small">{p.weight.toFixed(1)} · posture {Math.round(p.poise ?? 0)}</span>
+              {#if !catalog.isOwned(3, p.id)}
+                {#if catalog.whereIs(3, p.id).length}
+                  <button class="pill map" onclick={() => (ui.sheet = catalog.whereIs(3, p.id)[0])}><MapPin size={11} /> sur la carte</button>
+                {:else}<span class="pill">boss, marchand ou quête</span>{/if}
+              {/if}
+            {:else}
+              <span class="muted small">Rien (le poids manque)</span>
+            {/if}
+          </div>
+        {/each}
+      </div>
+      <p class="totals">
+        <span>Physique <strong>{armorSet.physical.toFixed(1)} %</strong></span>
+        <span>Éléments <strong>{armorSet.elemental.toFixed(1)} %</strong></span>
+        <span>Posture <strong>{Math.round(armorSet.poise)}</strong></span>
+        <span>Poids <strong>{armorSet.weight.toFixed(1)}</strong> / {budget.toFixed(1)}</span>
+      </p>
+    {:else}
+      <p class="muted">Pas de combinaison possible avec ce poids : monte l'Endurance ou prends une arme plus légère.</p>
+    {/if}
   </section>
 
   {#if studied}
@@ -210,6 +279,7 @@
         {#each advisor.smithing as { o, max } (o.weapon.id)}
           {@const cost = upgradeCost(gamedata.catalog!, o.weapon, o.level, o.weapon.max_level)}
           <li class="option">
+            {#if iconUrl(o.weapon.icon)}<img class="wicon" src={iconUrl(o.weapon.icon)} alt="" loading="lazy" />{/if}
             <div class="main">
               <button class="name" style="color: {rarityOf(o.weapon.rarity).color}" onclick={() => (ui.sheet = `equip:2:${o.weapon.id}`)}>{o.name}</button>
               <span class="muted small">+{o.level} → +{o.weapon.max_level} · {o.ar.total} → {max.ar.total}</span>
@@ -251,6 +321,7 @@
       <ol class="options">
         {#each topShown as b (b.weapon.id + ":" + b.variant.affinity)}
           <li class="option">
+            {#if iconUrl(b.weapon.icon)}<img class="wicon" src={iconUrl(b.weapon.icon)} alt="" loading="lazy" />{/if}
             <div class="main">
               <button class="name" style="color: {rarityOf(b.weapon.rarity).color}" onclick={() => (ui.sheet = `equip:2:${b.weapon.id}`)}>{b.name}</button>
               <span class="muted small">+{b.weapon.max_level} · {b.archetype}{b.twoHanded ? " · à deux mains" : ""}</span>
@@ -297,6 +368,7 @@
   {@const max = o.weapon.max_level}
   {@const cost = mine && o.level < max ? upgradeCost(gamedata.catalog!, o.weapon, o.level, max) : null}
   <li class="option" class:first>
+    {#if iconUrl(o.weapon.icon)}<img class="wicon" src={iconUrl(o.weapon.icon)} alt="" loading="lazy" />{/if}
     <div class="main">
       <button class="name" style="color: {rarityOf(o.weapon.rarity).color}" onclick={() => (ui.sheet = `equip:2:${o.weapon.id}`)}>{o.name}</button>
       <span class="muted small">
@@ -553,6 +625,53 @@
     border-color: var(--gold-dim);
     color: var(--gold);
     cursor: pointer;
+  }
+  .armor {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+  }
+  @media (max-width: 760px) {
+    .armor {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .wicon {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+    flex-shrink: 0;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6));
+  }
+  .piece {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 3px;
+    padding: 10px 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+  }
+  .piece img,
+  .piece .empty {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+  }
+  .piece .name {
+    align-self: center;
+    text-align: center;
+    color: var(--text);
+    font-size: 13px;
+  }
+  .totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin-top: 10px;
   }
   .kind {
     display: flex;

@@ -29,6 +29,8 @@ pub struct LotItem {
     pub count: u8,
     /// EquipParamGoods.goodsType, for goods.
     pub goods_type: Option<u8>,
+    /// Artwork id (MENU_Knowledge_<icon>), served as img/icon/<icon>.png.
+    pub icon: Option<u16>,
 }
 
 const TABLES: [&str; 6] = ["", "GoodsName", "WeaponName", "ProtectorName", "AccessoryName", "GemName"];
@@ -52,6 +54,17 @@ pub fn extract(
     let lots: HashMap<i32, _> = lot_param.iter().map(|r| (r.id, r)).collect();
     let goods_param = Param::read(get("EquipParamGoods")?)?;
     let goods_types: HashMap<i32, u8> = goods_param.iter().map(|r| (r.id, r.u8(0x3e))).collect();
+    // Icon id per category: goods, weapon, armour (male), talisman, ash of war.
+    let icons: Vec<HashMap<i32, u16>> = [("", 0), ("EquipParamGoods", 0x30), ("EquipParamWeapon", 0xbe), ("EquipParamProtector", 0xa6), ("EquipParamAccessory", 0x26), ("EquipParamGem", 0x4)]
+        .iter()
+        .map(|&(name, at)| {
+            params
+                .get(name)
+                .and_then(|d| Param::read(d).ok())
+                .map(|p| p.iter().map(|r| (r.id, r.u16(at))).collect())
+                .unwrap_or_default()
+        })
+        .collect();
 
     let mut seen = HashSet::new();
     let mut out = Vec::new();
@@ -82,6 +95,7 @@ pub fn extract(
                     name: Text { en: lookup(en.get(table), cat, id)?, fr: lookup(fr.get(table), cat, id) },
                     count: row.u8(0x8a + i).max(1),
                     goods_type: (cat == 1).then(|| goods_types.get(&id).copied()).flatten(),
+                    icon: icons[cat as usize].get(&id).or_else(|| icons[cat as usize].get(&(id / 10000 * 10000))).copied(),
                 })
             })
             .collect();

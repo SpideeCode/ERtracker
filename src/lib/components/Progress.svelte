@@ -7,6 +7,8 @@
   import ItemList from "./ItemList.svelte";
   import CategoryList from "./CategoryList.svelte";
   import Quests from "./Quests.svelte";
+  import ProgressOverview from "./ProgressOverview.svelte";
+  import { achievements } from "$lib/achievements.svelte";
 
   let { tab }: { tab: ProgressTab } = $props();
 
@@ -20,6 +22,7 @@
   const items = $derived(`${[...gamedata.items.keys()].filter((id) => tracker.completed.has(id)).length}/${gamedata.items.size}`);
 
   const tabs: { id: ProgressTab; label: string; count: () => string }[] = [
+    { id: "overview", label: "Aperçu", count: () => achievements.rank.title },
     { id: "bosses", label: "Boss", count: () => count("boss") },
     { id: "items", label: "Objets", count: () => items },
     { id: "graces", label: "Grâces", count: () => count("grace") },
@@ -37,7 +40,9 @@
   {/each}
 </div>
 
-{#if tab === "bosses"}
+{#if tab === "overview"}
+  <ProgressOverview />
+{:else if tab === "bosses"}
   <BossList />
 {:else if tab === "items"}
   <ItemList />

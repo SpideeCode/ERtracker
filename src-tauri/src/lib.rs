@@ -1,4 +1,5 @@
 pub mod extract;
+mod images;
 pub mod journal;
 mod maps;
 mod overlay;

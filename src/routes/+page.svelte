@@ -8,6 +8,8 @@
   import GlobalSearch from "$lib/components/GlobalSearch.svelte";
   import Notifications from "$lib/components/Notifications.svelte";
   import Welcome from "$lib/components/Welcome.svelte";
+  import { achievements } from "$lib/achievements.svelte";
+  import { gamedata } from "$lib/gamedata.svelte";
   import Builds from "$lib/components/Builds.svelte";
   import Stats from "$lib/components/Stats.svelte";
   import Explore from "$lib/components/Explore.svelte";
@@ -44,6 +46,21 @@
       clearInterval(timer);
       window.removeEventListener("keydown", onKey);
     };
+  });
+
+  // A toast for each achievement unlocked while playing (not for those already there at launch).
+  let knownAchievements: Set<string> | null = null;
+  let knownSlot = -1;
+  $effect(() => {
+    const ids = achievements.unlockedIds;
+    if (!gamedata.loaded || !tracker.snapshot) return;
+    if (knownAchievements && tracker.snapshot.slot === knownSlot) {
+      for (const a of achievements.list) {
+        if (a.unlocked && !knownAchievements.has(a.id)) tracker.notify(`achievement:${a.id}`, a.title, "achievement");
+      }
+    }
+    knownAchievements = ids;
+    knownSlot = tracker.snapshot.slot;
   });
 
   const snapshot = $derived(tracker.snapshot);

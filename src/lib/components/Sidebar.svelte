@@ -20,7 +20,7 @@
   const all: { kind: View["kind"]; label: string; icon: typeof Compass; go: View }[] = [
     { kind: "now", label: "Maintenant", icon: Compass, go: { kind: "now" } },
     { kind: "map", label: "Carte", icon: Map, go: { kind: "map" } },
-    { kind: "progress", label: "Progression", icon: Trophy, go: { kind: "progress", tab: "bosses" } },
+    { kind: "progress", label: "Progression", icon: Trophy, go: { kind: "progress", tab: "overview" } },
     { kind: "explore", label: "Explorer", icon: Telescope, go: { kind: "explore" } },
     { kind: "journey", label: "Mon aventure", icon: BookOpen, go: { kind: "journey" } },
     { kind: "builds", label: "Builds", icon: Swords, go: { kind: "builds" } },

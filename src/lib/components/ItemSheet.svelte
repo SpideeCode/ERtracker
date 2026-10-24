@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { iconUrl } from "$lib/art";
+  import { catalog } from "$lib/catalog.svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { tracker } from "$lib/tracker.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
@@ -26,6 +28,8 @@
 {#if !pickup || !first}
   <p class="muted">Objet introuvable dans les données extraites.</p>
 {:else}
+  {@const art = iconUrl(first.icon ?? catalog.icon(first.cat, first.id))}
+  {#if art}<img class="art" src={art} alt="" />{/if}
   <header>
     <div class="badges">
       <span class="badge" class:ok={done}>{done ? "Récupéré ✓" : "À récupérer"}</span>

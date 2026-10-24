@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { iconUrl } from "$lib/art";
   // Sheet for a catalogue item ("equip:<cat>:<id>"), e.g. from the build advisor.
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { catalog } from "$lib/catalog.svelte";
@@ -25,6 +26,7 @@
   const wiki = $derived(`https://eldenring.wiki.fextralife.com/${encodeURIComponent(name.en).replace(/%20/g, "+")}`);
 </script>
 
+{#if iconUrl(catalog.icon(cat, itemId))}<img class="art" src={iconUrl(catalog.icon(cat, itemId))} alt="" />{/if}
 <header>
   <div class="badges"><span class="badge">{KINDS[cat] ?? "Objet"}</span></div>
   <h2>{name.fr ?? name.en}</h2>

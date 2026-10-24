@@ -17,6 +17,7 @@
   import { prefs } from "$lib/prefs.svelte";
   import { advisor } from "$lib/buildAdvisor.svelte";
   import { Sparkles } from "@lucide/svelte";
+  import { regionScene } from "$lib/art";
 
   let { now }: { now: number } = $props();
 
@@ -99,7 +100,7 @@
 
 <div class="grid">
   <!-- Where you are -->
-  <section class="card hero">
+  <section class="card hero" style={zone ? `--scene: url(${regionScene(zone.region)})` : ""}>
     <div class="kicker"><MapPin size={14} /> Où tu es</div>
     {#if zone}
       <h2>{zoneData.name(zone)}</h2>
@@ -286,7 +287,10 @@
   }
   .hero {
     grid-column: span 2;
-    background: linear-gradient(135deg, rgba(201, 169, 91, 0.12), transparent 60%), var(--surface);
+    background:
+      linear-gradient(90deg, var(--surface) 30%, rgba(23, 21, 15, 0.55) 70%, rgba(23, 21, 15, 0.25)),
+      var(--scene, none) right center / cover no-repeat,
+      var(--surface);
     border-color: var(--gold-dim);
   }
   .wide {

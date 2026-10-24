@@ -14,6 +14,8 @@ export function achievement(category: string): string {
   switch (category) {
     case "boss":
       return "Boss vaincu";
+    case "achievement":
+      return "Haut fait débloqué";
     case "grace":
       return "Site de grâce découvert";
     case "great_rune":

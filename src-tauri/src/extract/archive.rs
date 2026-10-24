@@ -203,6 +203,42 @@ impl Archive {
         }
         Ok(data)
     }
+
+    /// `len` bytes at `offset` of a file, without reading the rest: for big
+    /// split binders where only one entry is wanted.
+    pub fn read_range(&self, path: &str, offset: usize, len: usize) -> Result<Vec<u8>> {
+        let entry = self
+            .files
+            .get(&path_hash(path))
+            .ok_or_else(|| ExtractError::new(format!("{path} not found in archive")))?;
+        if offset + len > entry.padded_size {
+            return Err(ExtractError::new(format!("{path}: range out of bounds")));
+        }
+        // AES works on 16-byte blocks counted from the start of the file.
+        let start = offset & !15;
+        let end = (offset + len).div_ceil(16) * 16;
+        let end = end.min(entry.padded_size);
+        let mut file = File::open(&self.bdt)?;
+        file.seek(SeekFrom::Start(entry.offset + start as u64))?;
+        let mut data = vec![0u8; end - start];
+        file.read_exact(&mut data)?;
+        if let Some((key, ranges)) = &entry.aes {
+            let cipher = aes::Aes128::new(key.into());
+            for &(r_start, r_end) in ranges {
+                if r_start < 0 || r_end <= r_start {
+                    continue;
+                }
+                let (from, to) = ((r_start as usize).max(start), (r_end as usize).min(end));
+                if from >= to {
+                    continue;
+                }
+                for block in data[from - start..to - start].chunks_exact_mut(16) {
+                    cipher.decrypt_block(block.into());
+                }
+            }
+        }
+        Ok(data[offset - start..offset - start + len].to_vec())
+    }
 }
 
 #[cfg(test)]
