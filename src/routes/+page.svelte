@@ -13,6 +13,7 @@
   import Builds from "$lib/components/Builds.svelte";
   import RuneEditor from "$lib/components/RuneEditor.svelte";
   import Stats from "$lib/components/Stats.svelte";
+  import Explore from "$lib/components/Explore.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
   import { mapdata } from "$lib/mapdata.svelte";
   import { ui } from "$lib/ui.svelte";
@@ -113,6 +114,9 @@
       <span>Carte</span>
     </button>
 
+    <button class:active={view.kind === "explore"} onclick={() => (ui.view = { kind: "explore" })}>
+      <span>À explorer</span>
+    </button>
     <button class:active={view.kind === "stats"} onclick={() => (ui.view = { kind: "stats" })}>
       <span>Mes stats</span>
     </button>
@@ -168,6 +172,8 @@
         <RuneEditor />
       {:else if view.kind === "stats"}
         <Stats />
+      {:else if view.kind === "explore"}
+        <Explore />
       {:else if view.kind === "quests"}
         <Quests />
       {:else if view.kind === "map"}

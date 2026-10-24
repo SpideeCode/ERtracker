@@ -7,6 +7,7 @@ export type View =
   | { kind: "builds" }
   | { kind: "runes" }
   | { kind: "stats" }
+  | { kind: "explore" }
   | { kind: "quests" };
 
 /** A place to centre the map on, e.g. a grace named in a route. */
@@ -17,6 +18,8 @@ export interface FlyTarget {
   label: string;
   /** Boss whose route should stay drawn. */
   route?: string;
+  /** Highlight an area of this many metres around the point. */
+  radius?: number;
 }
 
 class Ui {

@@ -256,11 +256,23 @@
       highlightLayer.clearLayers().addTo(map);
       const at = toLatLng(fly.x, fly.y);
       L.marker(at, { icon: L.divIcon({ className: "fly-ring", iconSize: [34, 34] }), interactive: false }).addTo(highlightLayer);
+      if (fly.radius) {
+        L.circle(at, {
+          radius: fly.radius / 2 ** info.max_zoom,
+          color: "#f3d27a",
+          weight: 2,
+          dashArray: "6 6",
+          fillColor: "#f3d27a",
+          fillOpacity: 0.08,
+          interactive: false,
+        }).addTo(highlightLayer);
+      }
       L.tooltip({ permanent: true, direction: "top", className: "route-label", offset: [0, -16] })
         .setLatLng(at)
         .setContent(fly.label)
         .addTo(highlightLayer);
-      map.setView(at, 6);
+      if (fly.radius) map.fitBounds(L.latLngBounds(toLatLng(fly.x - fly.radius, fly.y + fly.radius), toLatLng(fly.x + fly.radius, fly.y - fly.radius)));
+      else map.setView(at, 6);
       keepClearOfSheet();
       ui.flyTo = null;
     });
