@@ -88,8 +88,9 @@
 
 <div class="search">
   <input
+    id="global-search"
     type="search"
-    placeholder="Rechercher un boss, une grâce, un objet… (FR ou EN)"
+    placeholder="Rechercher… (Ctrl+K)"
     bind:value={query}
     onfocus={() => (open = true)}
     oninput={() => {

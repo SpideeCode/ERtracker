@@ -1,15 +1,14 @@
+export type ProgressTab = "bosses" | "items" | "graces" | "quests" | "collections";
+export type SettingsTab = "general" | "overlay" | "runes";
+
 export type View =
-  | { kind: "dashboard" }
+  | { kind: "now" }
   | { kind: "map" }
-  | { kind: "category"; id: string }
-  | { kind: "bosses" }
-  | { kind: "items" }
-  | { kind: "builds" }
-  | { kind: "runes" }
-  | { kind: "stats" }
+  | { kind: "progress"; tab: ProgressTab }
   | { kind: "explore" }
-  | { kind: "overlay" }
-  | { kind: "quests" };
+  | { kind: "journey" }
+  | { kind: "builds" }
+  | { kind: "settings"; tab: SettingsTab };
 
 /** A place to centre the map on, e.g. a grace named in a route. */
 export interface FlyTarget {
@@ -24,21 +23,28 @@ export interface FlyTarget {
 }
 
 class Ui {
-  view = $state<View>({ kind: "dashboard" });
-  /** Entry shown in the side sheet (boss id), if any. */
+  view = $state<View>({ kind: "now" });
+  /** Entry shown in the side sheet, if any. */
   sheet = $state<string | null>(null);
   /** Entry the map should centre on and draw a route to. */
   focus = $state<string | null>(null);
   flyTo = $state<FlyTarget | null>(null);
   /** Chosen starting point per route target: a grace id, or "me" for the last saved position. */
   routeStart = $state<Record<string, string>>({});
-
-  /** Quest to unfold when the quests view opens. */
+  /** Quest to unfold when the quests tab opens. */
   questOpen = $state<string | null>(null);
+
+  go(view: View) {
+    this.view = view;
+  }
+
+  progress(tab: ProgressTab) {
+    this.view = { kind: "progress", tab };
+  }
 
   openQuest(id: string) {
     this.questOpen = id;
-    this.view = { kind: "quests" };
+    this.progress("quests");
   }
 
   openSheet(id: string) {

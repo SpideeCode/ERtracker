@@ -74,19 +74,14 @@
         return (a.distance ?? Infinity) - (b.distance ?? Infinity) || a.title.localeCompare(b.title);
       });
   });
-  const done = $derived(all.filter((r) => r.done).length);
 </script>
 
-<header>
-  <h2>Objets</h2>
-  <span class="muted">{done} / {all.length} ramassés</span>
-</header>
 
 {#if mapdata.running}
   <p class="notice">Mise à jour des données du jeu ({mapdata.percent} %) : la liste des objets arrive…</p>
 {:else if !gamedata.items.size}
   <p class="notice">
-    Prépare les cartes (onglet <button class="link" onclick={() => (ui.view = { kind: "map" })}>Carte</button>) : les objets
+    Prépare les cartes (onglet <button class="link" onclick={() => ui.go({ kind: "map" })}>Carte</button>) : les objets
     sont lus dans ton installation du jeu.
   </p>
 {/if}
@@ -154,14 +149,6 @@
 {/if}
 
 <style>
-  header {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-  }
-  h2 {
-    margin: 0 0 12px;
-  }
   .notice {
     background: var(--surface);
     border: 1px solid var(--gold-dim);

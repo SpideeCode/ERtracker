@@ -1,32 +1,37 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { db, tracker } from "$lib/tracker.svelte";
+  import { tracker } from "$lib/tracker.svelte";
   import { achievement, ago, playtime } from "$lib/labels";
   import Dashboard from "$lib/components/Dashboard.svelte";
-  import CategoryList from "$lib/components/CategoryList.svelte";
-  import Quests from "$lib/components/Quests.svelte";
   import MapView from "$lib/components/MapView.svelte";
-  import BossList from "$lib/components/BossList.svelte";
   import Sheet from "$lib/components/Sheet.svelte";
-  import ItemList from "$lib/components/ItemList.svelte";
   import GlobalSearch from "$lib/components/GlobalSearch.svelte";
   import Builds from "$lib/components/Builds.svelte";
-  import RuneEditor from "$lib/components/RuneEditor.svelte";
   import Stats from "$lib/components/Stats.svelte";
   import Explore from "$lib/components/Explore.svelte";
-  import OverlayPanel from "$lib/components/OverlayPanel.svelte";
-  import { gamedata } from "$lib/gamedata.svelte";
+  import Sidebar from "$lib/components/Sidebar.svelte";
+  import Progress from "$lib/components/Progress.svelte";
+  import Settings from "$lib/components/Settings.svelte";
   import { mapdata } from "$lib/mapdata.svelte";
+  import { prefs } from "$lib/prefs.svelte";
   import { ui } from "$lib/ui.svelte";
 
   let now = $state(Date.now());
   const view = $derived(ui.view);
 
   onMount(() => {
+    prefs.load();
     tracker.start();
     mapdata.init();
     const timer = setInterval(() => (now = Date.now()), 1000);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && (ui.sheet = null);
+    const onKey = (e: KeyboardEvent) => {
+      const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement;
+      if (e.key === "Escape") ui.sheet = null;
+      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        document.getElementById("global-search")?.focus();
+      } else if (!typing && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === "m") ui.go({ kind: "map" });
+    };
     window.addEventListener("keydown", onKey);
     return () => {
       clearInterval(timer);
@@ -37,52 +42,24 @@
   const snapshot = $derived(tracker.snapshot);
   const fresh = $derived(snapshot ? now - snapshot.loaded_at < 15 * 60 * 1000 : false);
 
-  const counts = $derived(
-    Object.fromEntries(
-      db.categories.map((c) => {
-        const entries = db.entries.filter((e) => e.category === c.id);
-        return [c.id, `${entries.filter((e) => tracker.completed.has(e.id)).length}/${entries.length}`];
-      }),
-    ),
-  );
-
-  const itemCount = $derived(
-    `${[...gamedata.items.keys()].filter((id) => tracker.completed.has(id)).length}/${gamedata.items.size}`,
-  );
-
-  function folderLabel(path: string) {
-    const parts = path.split(/[\\/]/);
-    return `${parts.at(-2)} · ${parts.at(-1)}`;
-  }
-
-  const open = (id: string) => (ui.view = id === "boss" ? { kind: "bosses" } : { kind: "category", id });
-  const isActive = (id: string) => (view.kind === "category" && view.id === id) || (view.kind === "bosses" && id === "boss");
+  // Dashboard cards open the matching progress tab.
+  const open = (category: string) =>
+    ui.progress(category === "boss" ? "bosses" : category === "grace" ? "graces" : "collections");
 </script>
 
-<div class="app">
+<div class="app" class:collapsed={prefs.sidebarCollapsed}>
   <header>
     <div class="brand">ERtracker</div>
 
     {#if snapshot}
       <select
+        class="character"
         value={snapshot.slot}
         onchange={(e) => tracker.select(null, Number(e.currentTarget.value))}
-        title="Personnage"
+        title="Personnage suivi"
       >
         {#each snapshot.characters as c (c.slot)}
           <option value={c.slot}>{c.name} · niv. {c.level} · {playtime(c.seconds_played)}</option>
-        {/each}
-      </select>
-    {/if}
-
-    {#if tracker.saves.length > 1}
-      <select
-        value={snapshot?.save_path}
-        onchange={(e) => tracker.select(e.currentTarget.value, null)}
-        title="Fichier de sauvegarde"
-      >
-        {#each tracker.saves as s (s.path)}
-          <option value={s.path}>{folderLabel(s.path)}</option>
         {/each}
       </select>
     {/if}
@@ -91,7 +68,7 @@
 
     {#if mapdata.running && mapdata.status?.manifest}
       <div class="sync" title={mapdata.step()}>
-        Mise à jour des données du jeu… {mapdata.percent} %
+        Mise à jour des données… {mapdata.percent} %
         <div class="sync-bar"><div style="width: {mapdata.percent}%"></div></div>
       </div>
     {/if}
@@ -99,55 +76,14 @@
     <div class="live" class:on={fresh} title={snapshot?.save_path}>
       <span class="dot"></span>
       {#if snapshot}
-        LIVE · sauvegarde lue {ago(snapshot.loaded_at, now)}
+        LIVE · {ago(snapshot.loaded_at, now)}
       {:else}
         En attente…
       {/if}
     </div>
   </header>
 
-  <nav>
-    <div class="group">Suivi</div>
-    <button class:active={view.kind === "dashboard"} onclick={() => (ui.view = { kind: "dashboard" })}>
-      <span>Tableau de bord</span>
-    </button>
-    <button class:active={view.kind === "map"} onclick={() => (ui.view = { kind: "map" })}>
-      <span>Carte</span>
-    </button>
-
-    <button class:active={view.kind === "explore"} onclick={() => (ui.view = { kind: "explore" })}>
-      <span>À explorer</span>
-    </button>
-    <button class:active={view.kind === "stats"} onclick={() => (ui.view = { kind: "stats" })}>
-      <span>Mes stats</span>
-    </button>
-    <button class:active={view.kind === "builds"} onclick={() => (ui.view = { kind: "builds" })}>
-      <span>Conseiller de build</span>
-    </button>
-
-    <div class="group">Progression</div>
-    {#each db.categories as c (c.id)}
-      <button class:active={isActive(c.id)} onclick={() => open(c.id)}>
-        <span>{c.name.fr}</span>
-        <span class="count">{counts[c.id]}</span>
-      </button>
-    {/each}
-    <button class:active={view.kind === "items"} onclick={() => (ui.view = { kind: "items" })}>
-      <span>Objets</span>
-      {#if gamedata.items.size}<span class="count">{itemCount}</span>{/if}
-    </button>
-    <button class:active={view.kind === "quests"} onclick={() => (ui.view = { kind: "quests" })}>
-      <span>Quêtes PNJ</span>
-    </button>
-
-    <div class="group">Outils</div>
-    <button class:active={view.kind === "overlay"} onclick={() => (ui.view = { kind: "overlay" })}>
-      <span>Overlay en jeu</span>
-    </button>
-    <button class:active={view.kind === "runes"} onclick={() => (ui.view = { kind: "runes" })}>
-      <span>Runes</span>
-    </button>
-  </nav>
+  <Sidebar />
 
   <div class="content">
     <main class:full={view.kind === "map"}>
@@ -160,30 +96,20 @@
           Recherche de ta sauvegarde Elden Ring dans %APPDATA%\EldenRing… Si rien n'apparaît, lance le jeu une fois
           pour créer un personnage.
         </p>
-      {:else if view.kind === "dashboard"}
+      {:else if view.kind === "now"}
         <Dashboard {now} {open} />
-      {:else if view.kind === "category"}
-        {#key view.id}
-          <CategoryList category={view.id} />
-        {/key}
-      {:else if view.kind === "bosses"}
-        <BossList />
-      {:else if view.kind === "items"}
-        <ItemList />
-      {:else if view.kind === "builds"}
-        <Builds />
-      {:else if view.kind === "runes"}
-        <RuneEditor />
-      {:else if view.kind === "stats"}
-        <Stats />
-      {:else if view.kind === "explore"}
-        <Explore />
-      {:else if view.kind === "overlay"}
-        <OverlayPanel />
-      {:else if view.kind === "quests"}
-        <Quests />
       {:else if view.kind === "map"}
         <MapView />
+      {:else if view.kind === "progress"}
+        <Progress tab={view.tab} />
+      {:else if view.kind === "explore"}
+        <Explore />
+      {:else if view.kind === "journey"}
+        <Stats />
+      {:else if view.kind === "builds"}
+        <Builds />
+      {:else if view.kind === "settings"}
+        <Settings tab={view.tab} />
       {/if}
     </main>
 
@@ -260,7 +186,7 @@
 
   .app {
     display: grid;
-    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr);
     grid-template-rows: 52px minmax(0, 1fr);
     grid-template-areas: "header header" "nav content";
     height: 100vh;
@@ -273,6 +199,9 @@
     padding: 10px 16px;
     border-bottom: 1px solid var(--border);
     background: var(--surface);
+  }
+  .character {
+    max-width: 280px;
   }
   .brand {
     font-family: Georgia, "Times New Roman", serif;
@@ -317,53 +246,6 @@
     height: 100%;
     background: var(--gold);
     transition: width 0.2s;
-  }
-  nav {
-    grid-area: nav;
-    border-right: 1px solid var(--border);
-    padding: 12px 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    overflow-y: auto;
-  }
-  .group {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    padding: 12px 10px 4px;
-  }
-  .group:first-child {
-    padding-top: 0;
-  }
-  nav button {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    text-align: left;
-    background: none;
-    border: none;
-    color: var(--text-dim);
-    padding: 7px 10px;
-    border-radius: 6px;
-    font: inherit;
-    cursor: pointer;
-  }
-  nav button:hover {
-    background: var(--surface);
-  }
-  nav button.active {
-    background: var(--surface-2);
-    color: var(--gold);
-  }
-  .count {
-    font-size: 12px;
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
-  }
-  nav button.active .count {
-    color: var(--gold-dim);
   }
   .content {
     grid-area: content;

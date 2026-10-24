@@ -116,7 +116,7 @@
         {/each}
       </tbody>
     </table>
-    <button class="link" onclick={() => (ui.view = { kind: "map" })}>Voir mon voyage sur la carte →</button>
+    <button class="link" onclick={() => ui.go({ kind: "map" })}>Voir mon voyage sur la carte →</button>
   </section>
 {/if}
 

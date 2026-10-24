@@ -35,20 +35,14 @@
       });
   });
 
-  const total = $derived(db.entries.filter((e) => e.category === "boss"));
-  const defeated = $derived(total.filter((e) => tracker.completed.has(e.id)).length);
 </script>
 
-<header>
-  <h2>Boss</h2>
-  <span class="muted">{defeated} / {total.length} vaincus</span>
-</header>
 
 {#if mapdata.running}
   <p class="notice">Mise à jour des données du jeu ({mapdata.percent} %) : noms en français, positions et fiches arrivent…</p>
 {:else if !gamedata.loaded}
   <p class="notice">
-    Prépare les cartes (onglet <button class="link" onclick={() => (ui.view = { kind: "map" })}>Carte</button>) pour avoir
+    Prépare les cartes (onglet <button class="link" onclick={() => ui.go({ kind: "map" })}>Carte</button>) pour avoir
     les positions, les itinéraires, les noms en français et les défenses de chaque boss.
   </p>
 {/if}
@@ -96,14 +90,6 @@
 </table>
 
 <style>
-  header {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-  }
-  h2 {
-    margin: 0 0 12px;
-  }
   .notice {
     background: var(--surface);
     border: 1px solid var(--gold-dim);
