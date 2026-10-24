@@ -8,14 +8,46 @@
   import { buildZones, progress, zoneName, type Zone } from "$lib/zones";
   import { formatDistance } from "$lib/route";
   import { ui } from "$lib/ui.svelte";
+  import { PLACE_KINDS, isDungeon, placeContents } from "$lib/places";
 
   const MAPS: Record<string, string> = { M00: "Entre-terre", M01: "Souterrain", M10: "Royaume de l'Ombre", M11: "Souterrain (DLC)" };
 
   let filter = $state<"suggest" | "started" | "all">("suggest");
   let revealed = $state<Set<string>>(new Set());
 
+  const dungeons = $derived(
+    gamedata.places.flatMap((p, i) => {
+      if (!isDungeon(p)) return [];
+      const c = placeContents(p, db.entries, gamedata.positions, gamedata.items, tracker.completed);
+      return [{ id: `place:${i}`, subtype: PLACE_KINDS[p.icon]?.[0] ?? "donjon", pos: p, done: c.visited }];
+    }),
+  );
+
+  /** "2 catacombes et 1 grotte" */
+  const plural = (kind: string, n: number) => {
+    const entry = Object.values(PLACE_KINDS).find(([one]) => one === kind);
+    return `${n} ${n > 1 ? (entry?.[1] ?? kind + "s") : kind}`;
+  };
+  const listKinds = (counts: Record<string, number>) => {
+    const parts = Object.entries(counts).map(([k, n]) => plural(k, n));
+    return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} et ${parts[parts.length - 1]}` : (parts[0] ?? "");
+  };
+
+  // Per region: dungeons never visited, the easiest things to miss.
+  const byRegion = $derived.by(() => {
+    const regions = new Map<string, Record<string, number>>();
+    for (const z of zones) {
+      if (!z.left.dungeon) continue;
+      const r = regions.get(z.region) ?? {};
+      for (const [k, n] of Object.entries(z.dungeonsLeft)) r[k] = (r[k] ?? 0) + n;
+      regions.set(z.region, r);
+    }
+    return [...regions].sort((a, b) => Object.values(b[1]).reduce((x, y) => x + y, 0) - Object.values(a[1]).reduce((x, y) => x + y, 0));
+  });
+
   const zones = $derived(
     buildZones({
+      dungeons,
       bosses: db.entries.filter((e) => e.category === "boss"),
       graces: db.entries.filter((e) => e.category === "grace"),
       items: [...gamedata.items],
@@ -64,6 +96,10 @@
   }
 
   const label = (id: string) => {
+    if (id.startsWith("place:")) {
+      const p = gamedata.places[Number(id.slice(6))];
+      return p ? (p.name.fr ?? p.name.en) : id;
+    }
     const e = db.entries.find((x) => x.id === id);
     if (e) return gamedata.name(e);
     const p = gamedata.items.get(id);
@@ -79,6 +115,17 @@
 
 {#if !gamedata.loaded}
   <p class="notice">Prépare les cartes (onglet Carte) pour activer les suggestions.</p>
+{/if}
+
+{#if byRegion.length}
+  <section class="missed">
+    <h3>Donjons jamais visités</h3>
+    <ul>
+      {#each byRegion as [region, counts] (region)}
+        <li><strong>{regionName(region)}</strong> : {listKinds(counts)}</li>
+      {/each}
+    </ul>
+  </section>
 {/if}
 
 <div class="segmented filters">
@@ -106,6 +153,7 @@
         {#if z.left.boss}<li><strong>{z.left.boss}</strong> boss</li>{/if}
         {#if z.left.grace}<li><strong>{z.left.grace}</strong> grâce{z.left.grace > 1 ? "s" : ""}</li>{/if}
         {#if z.left.item}<li><strong>{z.left.item}</strong> objet{z.left.item > 1 ? "s" : ""} notable{z.left.item > 1 ? "s" : ""}</li>{/if}
+        {#if z.left.dungeon}<li class="dungeons">{listKinds(z.dungeonsLeft)} à visiter</li>{/if}
       </ul>
       <div class="actions">
         <button class="primary" onclick={() => show(z)}>Voir la zone</button>
@@ -114,7 +162,7 @@
       {#if revealed.has(z.key)}
         <ul class="spoil">
           {#each z.contents.filter((c) => !c.done) as c (c.id)}
-            <li><button onclick={() => (ui.sheet = c.id)}>{label(c.id)}</button><span class="muted small">{c.kind === "boss" ? "boss" : c.kind === "grace" ? "grâce" : "objet"}</span></li>
+            <li><button onclick={() => (ui.sheet = c.id)}>{label(c.id)}</button><span class="muted small">{c.kind === "boss" ? "boss" : c.kind === "grace" ? "grâce" : c.kind === "dungeon" ? c.subtype : "objet"}</span></li>
           {/each}
         </ul>
       {/if}
@@ -133,6 +181,33 @@
     border: 1px solid var(--gold-dim);
     border-radius: 6px;
     padding: 10px 12px;
+  }
+  .missed {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-top: 12px;
+  }
+  .missed h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gold);
+    font-family: inherit;
+    margin-bottom: 6px;
+  }
+  .missed ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    columns: 2 260px;
+  }
+  .missed li {
+    padding: 2px 0;
+  }
+  .dungeons {
+    color: #9fb4c8;
   }
   .filters {
     display: inline-flex;

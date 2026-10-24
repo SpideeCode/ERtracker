@@ -6,50 +6,22 @@
   import { pickupTitle, categoryById, pickupCategory } from "$lib/items";
   import { ui } from "$lib/ui.svelte";
   import RouteCard from "./RouteCard.svelte";
+  import { PLACE_KINDS, placeContents } from "$lib/places";
 
   let { id }: { id: string } = $props();
-
-  /** Map icon -> kind of place. */
-  const KINDS: Record<number, string> = {
-    4: "Catacombes",
-    13: "Grotte",
-    14: "Tunnel",
-    15: "Puits",
-    16: "Tombe de héros",
-    23: "Tour divine",
-    230: "Catacombes",
-    231: "Geôle",
-    232: "Forge en ruine",
-    233: "Grotte",
-    234: "Grotte",
-  };
 
   const place = $derived(gamedata.places[Number(id.split(":")[1])]);
   const pos = $derived(gamedata.positions.get(id));
   const name = $derived(place ? (place.name.fr ?? place.name.en) : "");
-  const isOpen = (block: string) => [60, 61, 12].includes(Number(block.slice(1, 3)));
-
-  // The dungeon's own map block: the place's block, or the block of the grace named like it inside.
-  const block = $derived.by(() => {
-    if (!place) return null;
-    if (!isOpen(place.block)) return place.block;
-    const grace = db.entries.find((e) => e.category === "grace" && e.name === place.name.en);
-    const gpos = grace ? gamedata.positions.get(grace.id) : undefined;
-    return gpos && !isOpen(gpos.block) ? gpos.block : null;
-  });
-
-  // Caves drawn inside an open-world tile have no block of their own: take what is around the entrance.
-  const NEARBY = 80;
-  const inside = (b: string | undefined, x: number, y: number, map: string) =>
-    block ? b === block || !!b?.startsWith(block) : !!place && map === place.map && Math.hypot(x - place.x, y - place.y) < NEARBY;
-  const atPlace = (id: string) => {
-    const p = gamedata.positions.get(id);
-    return !!p && inside(p.block, p.x, p.y, p.map);
-  };
-  const bosses = $derived(place ? db.entries.filter((e) => e.category === "boss" && atPlace(e.id)) : []);
-  const graces = $derived(place && block ? db.entries.filter((e) => e.category === "grace" && atPlace(e.id)) : []);
-  const items = $derived(place ? [...gamedata.items].filter(([, p]) => inside(p.block, p.x, p.y, p.map)) : []);
+  const contents = $derived(
+    place ? placeContents(place, db.entries, gamedata.positions, gamedata.items, tracker.completed) : null,
+  );
+  const block = $derived(contents?.block ?? null);
+  const bosses = $derived(contents?.bosses ?? []);
+  const graces = $derived(contents?.graces ?? []);
+  const items = $derived(contents?.items ?? []);
   const itemsDone = $derived(items.filter(([iid]) => tracker.completed.has(iid)).length);
+  const kind = $derived(place ? PLACE_KINDS[place.icon]?.[0] : undefined);
 
   const youtube = $derived(
     place ? `https://www.youtube.com/results?search_query=${encodeURIComponent(`Elden Ring ${place.name.en} walkthrough`)}` : "",
@@ -60,14 +32,17 @@
   <p class="muted">Lieu introuvable.</p>
 {:else}
   <header>
-    <div class="badges"><span class="badge">{KINDS[place.icon] ?? "Lieu"}</span></div>
+    <div class="badges">
+      <span class="badge">{kind ? kind.charAt(0).toUpperCase() + kind.slice(1) : "Lieu"}</span>
+      {#if contents}<span class="badge" class:ok={contents.done}>{contents.done ? "Terminé ✓" : contents.visited ? "Commencé" : "Pas encore visité"}</span>{/if}
+    </div>
     <h2>{name}</h2>
     {#if place.name.fr && place.name.fr !== place.name.en}<div class="muted small">{place.name.en}</div>{/if}
   </header>
 
   {#if place}
     <section class="card">
-      <h3>{block ? "À l'intérieur" : `Autour de l'entrée (${NEARBY} m)`}</h3>
+      <h3>{block ? "À l'intérieur" : "Autour de l'entrée"}</h3>
       {#if bosses.length}
         <ul class="list">
           {#each bosses as b (b.id)}

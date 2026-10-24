@@ -6,7 +6,9 @@ import type { Entry, ItemPickup, MapId, MarkerPos } from "./types";
 
 export interface ZoneContent {
   id: string;
-  kind: "boss" | "grace" | "item";
+  kind: "boss" | "grace" | "item" | "dungeon";
+  /** For dungeons: catacombe, grotte, tunnel... */
+  subtype?: string;
   pos: { map: string; x: number; y: number };
   done: boolean;
   /** How much it matters: bosses and legendary items weigh more. */
@@ -24,8 +26,10 @@ export interface Zone {
   y: number;
   radius: number;
   contents: ZoneContent[];
-  left: { boss: number; grace: number; item: number };
-  total: { boss: number; grace: number; item: number };
+  left: { boss: number; grace: number; item: number; dungeon: number };
+  total: { boss: number; grace: number; item: number; dungeon: number };
+  /** Dungeons never visited, by kind. */
+  dungeonsLeft: Record<string, number>;
   /** Graces discovered in the zone: the player has been there. */
   visited: boolean;
   /** Remaining weight. */
@@ -44,6 +48,8 @@ export interface ZoneInput {
   important: (p: ItemPickup) => boolean;
   /** 0-3 */
   rarity: (p: ItemPickup) => number;
+  /** Dungeon entrances; "done" means visited. */
+  dungeons: { id: string; subtype: string; pos: { map: string; x: number; y: number }; done: boolean }[];
 }
 
 export function buildZones(input: ZoneInput): Zone[] {
@@ -96,6 +102,7 @@ export function buildZones(input: ZoneInput): Zone[] {
     if (!input.important(p)) continue;
     add({ id, kind: "item", pos: p, done: completed.has(id), weight: 1 + input.rarity(p) });
   }
+  for (const d of input.dungeons) add({ id: d.id, kind: "dungeon", subtype: d.subtype, pos: d.pos, done: d.done, weight: 3 });
 
   const zones = new Map<string, Zone>();
   for (const c of contents) {
@@ -117,8 +124,9 @@ export function buildZones(input: ZoneInput): Zone[] {
         y: 0,
         radius: 0,
         contents: [],
-        left: { boss: 0, grace: 0, item: 0 },
-        total: { boss: 0, grace: 0, item: 0 },
+        left: { boss: 0, grace: 0, item: 0, dungeon: 0 },
+        total: { boss: 0, grace: 0, item: 0, dungeon: 0 },
+        dungeonsLeft: {},
         visited: false,
         score: 0,
       } satisfies Zone);
@@ -127,6 +135,7 @@ export function buildZones(input: ZoneInput): Zone[] {
     if (!c.done) {
       z.left[c.kind]++;
       z.score += c.weight;
+      if (c.subtype) z.dungeonsLeft[c.subtype] = (z.dungeonsLeft[c.subtype] ?? 0) + 1;
     }
     if (c.kind === "grace" && c.done) z.visited = true;
     zones.set(key, z);
