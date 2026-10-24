@@ -1,6 +1,10 @@
 <script lang="ts">
   // Side sheet frame: picks the right sheet for the entry kind.
   import { ui } from "$lib/ui.svelte";
+  import { describe } from "$lib/tracker.svelte";
+  import { gamedata } from "$lib/gamedata.svelte";
+  import { spoiler } from "$lib/spoiler.svelte";
+  import { ArrowLeft, EyeOff, X } from "@lucide/svelte";
   import BossSheet from "./BossSheet.svelte";
   import GraceSheet from "./GraceSheet.svelte";
   import ItemSheet from "./ItemSheet.svelte";
@@ -9,11 +13,36 @@
 
   let { id }: { id: string } = $props();
   const kind = $derived(id.split(":")[0]);
+  const previous = $derived.by(() => {
+    const prev = ui.sheetHistory.at(-1);
+    if (!prev) return null;
+    if (prev.startsWith("place:")) {
+      const p = gamedata.places[Number(prev.slice(6))];
+      return p ? (p.name.fr ?? p.name.en) : "Retour";
+    }
+    if (prev.startsWith("equip:")) return "Retour";
+    return spoiler.name(prev, describe(prev).label);
+  });
 </script>
 
 <aside class="sheet">
-  <button class="close" onclick={() => (ui.sheet = null)} title="Fermer (Échap)">×</button>
-  {#if kind === "boss"}
+  {#if previous}
+    <button class="back" onclick={() => ui.back()} title="Revenir à la fiche précédente (Alt+←)">
+      <ArrowLeft size={14} /> <span>{previous}</span>
+    </button>
+  {/if}
+  <button class="close" onclick={() => (ui.sheet = null)} title="Fermer (Échap)"><X size={16} /></button>
+  {#if spoiler.hidden(id)}
+    <div class="veil">
+      <EyeOff size={28} />
+      <h2>{spoiler.name(id, "")}</h2>
+      <p class="muted">
+        Mode sans spoil : tu ne l'as pas encore {kind === "boss" ? "vaincu" : kind === "grace" ? "découverte" : "ramassé"}, alors la fiche reste
+        cachée.
+      </p>
+      <button onclick={() => spoiler.revealed.add(id)}>Afficher la fiche quand même</button>
+    </div>
+  {:else if kind === "boss"}
     <BossSheet {id} />
   {:else if kind === "grace"}
     <GraceSheet {id} />
@@ -46,13 +75,61 @@
     background: var(--surface-2);
     border: 1px solid var(--border-strong);
     color: var(--text-dim);
-    font-size: 18px;
-    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
     z-index: 1;
   }
-  .close:hover {
+  .close:hover,
+  .back:hover {
     color: var(--text);
+  }
+  .back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: calc(100% - 44px);
+    background: none;
+    border: none;
+    padding: 0;
+    margin-bottom: 4px;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .veil {
+    margin-top: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    color: var(--muted);
+  }
+  .veil h2 {
+    margin: 6px 0 0 !important;
+  }
+  .veil p {
+    max-width: 300px;
+  }
+  .veil button {
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 7px 14px;
+    font: inherit;
+    cursor: pointer;
+  }
+  .veil button:hover {
+    border-color: var(--gold-dim);
+  }
+  .back span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   /* Shared by the sheets rendered inside. */
   .sheet :global(h2) {

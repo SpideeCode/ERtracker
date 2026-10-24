@@ -11,6 +11,8 @@
   import { zoneData } from "$lib/zoneData.svelte";
   import { formatDistance, heading } from "$lib/route";
   import { achievement } from "$lib/labels";
+  import { prefs } from "$lib/prefs.svelte";
+  import { spoiler } from "$lib/spoiler.svelte";
 
   type Corner = "tl" | "tr" | "bl" | "br";
   let interactive = $state(false);
@@ -41,11 +43,16 @@
 
   onMount(() => {
     load();
+    prefs.load();
+    // The main window changes the preferences; pick them up here too.
+    const onStorage = () => prefs.load();
+    window.addEventListener("storage", onStorage);
     tracker.start();
     gamedata.load();
     journal.reload();
     const un = listen<boolean>("overlay://interactive", (e) => (interactive = e.payload));
     return () => {
+      window.removeEventListener("storage", onStorage);
       un.then((f) => f());
     };
   });
@@ -63,7 +70,7 @@
       const p = gamedata.positions.get(b.id);
       if (!p || p.map !== me.map) continue;
       const d = Math.hypot(p.x - me.x, p.y - me.y);
-      if (!best || d < best.d) best = { id: b.id, name: gamedata.name(b), d, dir: heading(p.x - me.x, p.y - me.y), climb: p.height - me.height };
+      if (!best || d < best.d) best = { id: b.id, name: spoiler.name(b.id, gamedata.name(b)), d, dir: heading(p.x - me.x, p.y - me.y), climb: p.height - me.height };
     }
     return best;
   });

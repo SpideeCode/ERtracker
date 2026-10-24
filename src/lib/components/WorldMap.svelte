@@ -12,6 +12,7 @@
   import { ITEM_CATEGORIES, categoryById, pickupCategory, pickupTitle } from "$lib/items";
   import { zoneData } from "$lib/zoneData.svelte";
   import { search, type SearchResult } from "$lib/search.svelte";
+  import { spoiler } from "$lib/spoiler.svelte";
   import type { Entry, MapId, MapInfo, MarkerPos } from "$lib/types";
   import type { Snippet } from "svelte";
   import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, LocateFixed, Search } from "@lucide/svelte";
@@ -222,7 +223,7 @@
           fillColor: isDone ? DONE_COLOR : color,
           fillOpacity: isDone ? 0.45 : 0.95,
         })
-          .bindTooltip(pickupTitle(p), { direction: "top", offset: [0, -4] })
+          .bindTooltip(spoiler.name(id, pickupTitle(p)), { direction: "top", offset: [0, -4] })
           .on("click", () => (ui.sheet = id))
           .addTo(markerLayer);
         count++;
@@ -235,7 +236,7 @@
       if (missingOnly && isDone) continue;
       const legendary = gamedata.bosses.get(entry.id)?.legendary ?? false;
       const circle = L.circleMarker(toLatLng(pos.x, pos.y), style(entry, isDone, legendary, entry.id === selected))
-        .bindTooltip(gamedata.name(entry), { direction: "top", offset: [0, -6] });
+        .bindTooltip(spoiler.name(entry.id, gamedata.name(entry)), { direction: "top", offset: [0, -6] });
       circle.on("click", () => (ui.sheet = entry.id));
       circle.addTo(markerLayer);
       count++;

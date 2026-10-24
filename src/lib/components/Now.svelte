@@ -4,6 +4,7 @@
   import { onMount } from "svelte";
   import { MapPin, Swords, Telescope, Map as MapIcon, Layers, BookOpen, Skull, Trophy } from "@lucide/svelte";
   import { db, describe, tracker } from "$lib/tracker.svelte";
+  import { spoiler } from "$lib/spoiler.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
   import { zoneData } from "$lib/zoneData.svelte";
   import { journal } from "$lib/journal.svelte";
@@ -112,7 +113,7 @@
   <section class="card">
     <div class="kicker"><Swords size={14} /> Prochain boss</div>
     {#if nextBoss}
-      <h3>{gamedata.name(nextBoss.b)}{nextSheet?.legendary ? " ★" : ""}{nextBoss.locked ? " 🔒" : ""}</h3>
+      <h3>{spoiler.name(nextBoss.b.id, gamedata.name(nextBoss.b))}{nextSheet?.legendary ? " ★" : ""}{nextBoss.locked ? " 🔒" : ""}</h3>
       <p class="muted">
         {formatDistance(nextBoss.d)} vers le {nextBoss.dir}{nextSheet?.runes ? ` · ${nextSheet.runes.toLocaleString("fr-FR")} runes` : ""}{nextTries
           ? ` · ${nextTries} essai${nextTries > 1 ? "s" : ""}`

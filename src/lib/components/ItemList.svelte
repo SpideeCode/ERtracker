@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tracker } from "$lib/tracker.svelte";
+  import { spoiler } from "$lib/spoiler.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
   import { mapdata } from "$lib/mapdata.svelte";
   import { formatDistance, heading } from "$lib/route";
@@ -123,12 +124,12 @@
         <td>
           <div class="name">
             <span class="swatch" style="background: {categoryById.get(r.category)?.color}"></span>
-            <span style="color: {r.rarity > 0 ? rarityOf(r.rarity).color : 'inherit'}">{r.title}</span>
-            {#if r.p.items.some((i) => catalog.isOwned(i.cat, i.cat === 2 ? Math.floor(i.id / 10000) * 10000 : i.id))}
-              <span class="owned" title="Déjà dans ton inventaire">possédé</span>
+            <span style="color: {r.rarity > 0 ? rarityOf(r.rarity).color : 'inherit'}">{spoiler.name(r.id, r.title)}</span>
+            {#if !r.done && !spoiler.hidden(r.id) && r.p.items.some((i) => catalog.isOwned(i.cat, i.cat === 2 ? Math.floor(i.id / 10000) * 10000 : i.id))}
+              <span class="owned" title="Pas ramassé ici, mais tu as déjà cet objet (obtenu ailleurs ou acheté)">déjà en inventaire</span>
             {/if}
           </div>
-          {#if r.p.items[0].name.fr && r.p.items[0].name.fr !== r.p.items[0].name.en}
+          {#if !spoiler.hidden(r.id) && r.p.items[0].name.fr && r.p.items[0].name.fr !== r.p.items[0].name.en}
             <div class="muted small">{r.p.items[0].name.en}</div>
           {/if}
         </td>

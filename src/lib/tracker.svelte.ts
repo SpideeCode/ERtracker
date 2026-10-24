@@ -19,6 +19,7 @@ export interface LogItem {
 
 export interface Toast {
   key: number;
+  id: string;
   label: string;
   category: string;
 }
@@ -86,13 +87,13 @@ class Tracker {
     // No toast for quest steps or everyday pickups (materials, runes, consumables).
     const quiet = ["quest", "item:material", "item:rune", "item:consumable", "item:upgrade"];
     for (const item of items.filter((i) => i.gained && !quiet.includes(i.category))) {
-      this.toast(item.label, item.category);
+      this.toast(item.id, item.label, item.category);
     }
   }
 
-  private toast(label: string, category: string) {
+  private toast(id: string, label: string, category: string) {
     const key = ++this.toastKey;
-    this.toasts = [...this.toasts, { key, label, category }].slice(-4);
+    this.toasts = [...this.toasts, { key, id, label, category }].slice(-4);
     setTimeout(() => (this.toasts = this.toasts.filter((t) => t.key !== key)), 6000);
   }
 }

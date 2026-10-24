@@ -24,8 +24,27 @@ export interface FlyTarget {
 
 class Ui {
   view = $state<View>({ kind: "now" });
-  /** Entry shown in the side sheet, if any. */
-  sheet = $state<string | null>(null);
+  #sheet = $state<string | null>(null);
+  /** Sheets opened before the current one, most recent last. */
+  sheetHistory = $state<string[]>([]);
+
+  /** Entry shown in the side sheet, if any. Opening one from another keeps the way back. */
+  get sheet() {
+    return this.#sheet;
+  }
+  set sheet(id: string | null) {
+    if (id === this.#sheet) return;
+    if (!id) this.sheetHistory = [];
+    else if (this.#sheet) this.sheetHistory = [...this.sheetHistory.filter((s) => s !== id), this.#sheet].slice(-20);
+    this.#sheet = id;
+  }
+
+  back() {
+    const prev = this.sheetHistory.at(-1);
+    if (!prev) return;
+    this.sheetHistory = this.sheetHistory.slice(0, -1);
+    this.#sheet = prev;
+  }
   /** Entry the map should centre on and draw a route to. */
   focus = $state<string | null>(null);
   flyTo = $state<FlyTarget | null>(null);
@@ -49,6 +68,12 @@ class Ui {
 
   openSheet(id: string) {
     this.sheet = id;
+  }
+
+  /** Opens whatever a completed id refers to: a quest step unfolds its quest, the rest has a sheet. */
+  open(id: string) {
+    if (id.startsWith("quest:")) this.openQuest(id.split("#")[0]);
+    else this.sheet = id;
   }
 
   showPlace(target: FlyTarget) {

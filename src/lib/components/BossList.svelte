@@ -1,5 +1,6 @@
 <script lang="ts">
   import { db, tracker } from "$lib/tracker.svelte";
+  import { spoiler } from "$lib/spoiler.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
   import { formatDistance, heading } from "$lib/route";
   import { mapdata } from "$lib/mapdata.svelte";
@@ -69,7 +70,7 @@
         <td class="state"><span class="box" class:checked={r.done}>{r.done ? "✓" : ""}</span></td>
         <td>
           <div class="name">
-            {r.name}
+            {spoiler.name(r.e.id, r.name)}
             {#if r.sheet?.legendary}<span class="legend" title="Boss légendaire">★</span>{/if}
             {#if !r.done && locked(r.e)}<span class="lock" title="Accès à débloquer (voir la fiche)">🔒</span>{/if}
           </div>

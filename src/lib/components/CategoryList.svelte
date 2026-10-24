@@ -1,5 +1,6 @@
 <script lang="ts">
   import { db, tracker } from "$lib/tracker.svelte";
+  import { spoiler } from "$lib/spoiler.svelte";
   import { categoryName } from "$lib/labels";
   import { gamedata } from "$lib/gamedata.svelte";
 
@@ -48,7 +49,7 @@
         {@const done = tracker.completed.has(e.id)}
         <li class:done>
           <span class="check">{done ? "✓" : ""}</span>
-          <span>{gamedata.name(e)}</span>
+          <span>{spoiler.name(e.id, gamedata.name(e))}</span>
         </li>
       {/each}
     </ul>

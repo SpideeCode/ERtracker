@@ -6,6 +6,7 @@
   import MapView from "$lib/components/MapView.svelte";
   import Sheet from "$lib/components/Sheet.svelte";
   import GlobalSearch from "$lib/components/GlobalSearch.svelte";
+  import Notifications from "$lib/components/Notifications.svelte";
   import Builds from "$lib/components/Builds.svelte";
   import Stats from "$lib/components/Stats.svelte";
   import Explore from "$lib/components/Explore.svelte";
@@ -27,7 +28,10 @@
     const onKey = (e: KeyboardEvent) => {
       const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement;
       if (e.key === "Escape") ui.sheet = null;
-      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      else if (e.altKey && e.key === "ArrowLeft") {
+        e.preventDefault();
+        ui.back();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         document.getElementById("global-search")?.focus();
       } else if (!typing && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === "m") ui.go({ kind: "map" });
@@ -77,6 +81,7 @@
         En attente…
       {/if}
     </div>
+    <Notifications {now} />
   </header>
 
   <Sidebar />
@@ -120,10 +125,10 @@
 
   <div class="toasts">
     {#each tracker.toasts as t (t.key)}
-      <div class="toast">
+      <button class="toast" onclick={() => ui.open(t.id)} title="Ouvrir la fiche">
         <div class="kicker">{achievement(t.category)}</div>
         <div>{t.label}</div>
-      </div>
+      </button>
     {/each}
   </div>
 </div>
@@ -300,6 +305,11 @@
     border-radius: 6px;
     min-width: 240px;
     animation: slide 0.25s ease-out;
+    pointer-events: auto;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
   }
   .kicker {
     font-size: 11px;

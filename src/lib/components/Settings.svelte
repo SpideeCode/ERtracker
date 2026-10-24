@@ -60,7 +60,7 @@
       <input type="checkbox" bind:checked={prefs.spoilerFree} onchange={() => prefs.save()} />
       <span>
         <strong>Mode sans spoil</strong>
-        <span class="muted small">Masque le nom de ce que tu n'as pas encore trouvé (boss, objets, grâces) sur la carte et dans les listes.</span>
+        <span class="muted small">Ce que tu n'as pas encore trouvé (boss, grâces, objets) reste sans nom sur la carte, dans les listes et l'overlay ; sa fiche est voilée et la recherche ne le propose qu'une fois son nom complet tapé.</span>
       </span>
     </label>
     <label class="check">

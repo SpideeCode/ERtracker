@@ -6,6 +6,7 @@ import { categoryById, pickupCategory, pickupTitle } from "./items";
 import { DUNGEON_ICONS } from "./route";
 import { PLACE_KINDS } from "./places";
 import { zoneData } from "./zoneData.svelte";
+import { spoiler } from "./spoiler.svelte";
 
 export interface SearchResult {
   id: string;
@@ -80,5 +81,9 @@ export function search(query: string, limit = 14): SearchResult[] {
       rank: rank + 0.5,
     });
   }
-  return out.sort((a, b) => a.rank - b.rank || Number(a.done) - Number(b.done) || a.title.localeCompare(b.title)).slice(0, limit);
+  // Without spoilers, what is still to find only shows up once its whole name is typed.
+  const exact = (r: SearchResult) => normalize(r.title) === q || normalize(r.subtitle) === q;
+  return out
+    .filter((r) => !spoiler.hidden(r.id) || exact(r))
+    .sort((a, b) => a.rank - b.rank || Number(a.done) - Number(b.done) || a.title.localeCompare(b.title)).slice(0, limit);
 }
