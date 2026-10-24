@@ -14,6 +14,7 @@
   import RuneEditor from "$lib/components/RuneEditor.svelte";
   import Stats from "$lib/components/Stats.svelte";
   import Explore from "$lib/components/Explore.svelte";
+  import OverlayPanel from "$lib/components/OverlayPanel.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
   import { mapdata } from "$lib/mapdata.svelte";
   import { ui } from "$lib/ui.svelte";
@@ -140,6 +141,9 @@
     </button>
 
     <div class="group">Outils</div>
+    <button class:active={view.kind === "overlay"} onclick={() => (ui.view = { kind: "overlay" })}>
+      <span>Overlay en jeu</span>
+    </button>
     <button class:active={view.kind === "runes"} onclick={() => (ui.view = { kind: "runes" })}>
       <span>Runes</span>
     </button>
@@ -174,6 +178,8 @@
         <Stats />
       {:else if view.kind === "explore"}
         <Explore />
+      {:else if view.kind === "overlay"}
+        <OverlayPanel />
       {:else if view.kind === "quests"}
         <Quests />
       {:else if view.kind === "map"}

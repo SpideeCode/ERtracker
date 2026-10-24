@@ -1,6 +1,7 @@
 pub mod extract;
 pub mod journal;
 mod maps;
+mod overlay;
 pub mod pathfind;
 pub mod paths;
 pub mod progress;
@@ -87,19 +88,31 @@ fn get_journal(state: State<TrackerState>) -> Vec<journal::Record> {
     state.lock().unwrap().journal()
 }
 
+#[tauri::command]
+fn toggle_overlay(app: AppHandle) -> Result<bool, String> {
+    overlay::toggle(&app)
+}
+
+#[tauri::command]
+fn set_overlay_interactive(app: AppHandle, on: bool) -> Result<(), String> {
+    overlay::set_interactive(&app, on)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(overlay::plugin())
         .register_uri_scheme_protocol(maps::SCHEME, |ctx, request| maps::serve(ctx.app_handle(), &request))
         .setup(|app| {
             maps::init(app.handle());
+            overlay::register_shortcuts(app.handle());
             let config = app.path().app_config_dir()?.join("config.json");
             let journal = app.path().app_data_dir()?.join("journal");
             app.manage::<TrackerState>(std::sync::Mutex::new(Tracker::new(config, journal)));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![list_saves, find_game_dir, load_state, select, map_status, extract_maps, game_running, set_runes, find_path, get_journal])
+        .invoke_handler(tauri::generate_handler![list_saves, find_game_dir, load_state, select, map_status, extract_maps, game_running, set_runes, find_path, get_journal, toggle_overlay, set_overlay_interactive])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

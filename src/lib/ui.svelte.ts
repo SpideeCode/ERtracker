@@ -8,6 +8,7 @@ export type View =
   | { kind: "runes" }
   | { kind: "stats" }
   | { kind: "explore" }
+  | { kind: "overlay" }
   | { kind: "quests" };
 
 /** A place to centre the map on, e.g. a grace named in a route. */
