@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { tracker } from "$lib/tracker.svelte";
   import { achievement, ago, playtime } from "$lib/labels";
-  import Dashboard from "$lib/components/Dashboard.svelte";
+  import Now from "$lib/components/Now.svelte";
   import MapView from "$lib/components/MapView.svelte";
   import Sheet from "$lib/components/Sheet.svelte";
   import GlobalSearch from "$lib/components/GlobalSearch.svelte";
@@ -41,10 +41,6 @@
 
   const snapshot = $derived(tracker.snapshot);
   const fresh = $derived(snapshot ? now - snapshot.loaded_at < 15 * 60 * 1000 : false);
-
-  // Dashboard cards open the matching progress tab.
-  const open = (category: string) =>
-    ui.progress(category === "boss" ? "bosses" : category === "grace" ? "graces" : "collections");
 </script>
 
 <div class="app" class:collapsed={prefs.sidebarCollapsed}>
@@ -97,7 +93,7 @@
           pour créer un personnage.
         </p>
       {:else if view.kind === "now"}
-        <Dashboard {now} {open} />
+        <Now {now} />
       {:else if view.kind === "map"}
         <MapView />
       {:else if view.kind === "progress"}

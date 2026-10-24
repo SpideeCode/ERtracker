@@ -6,12 +6,9 @@
   import { listen } from "@tauri-apps/api/event";
   import { db, tracker } from "$lib/tracker.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
-  import { catalog } from "$lib/catalog.svelte";
   import { journal } from "$lib/journal.svelte";
   import { analyse, sessions } from "$lib/history";
-  import { buildZones, zoneName } from "$lib/zones";
-  import { categoryById, pickupCategory } from "$lib/items";
-  import { PLACE_KINDS, isDungeon, placeContents } from "$lib/places";
+  import { zoneData } from "$lib/zoneData.svelte";
   import { formatDistance, heading } from "$lib/route";
   import { achievement } from "$lib/labels";
 
@@ -73,27 +70,7 @@
   const attempts = $derived(nextBoss ? (analysis.bosses.find((b) => b.id === nextBoss.id)?.attempts ?? 0) : 0);
 
   // The zone the player stands in, and what is left there.
-  const zone = $derived.by(() => {
-    if (!me || !gamedata.loaded) return null;
-    const zones = buildZones({
-      bosses,
-      graces: db.entries.filter((e) => e.category === "grace"),
-      items: [...gamedata.items],
-      positions: gamedata.positions,
-      completed: tracker.completed,
-      important: (p) => !!categoryById.get(pickupCategory(p))?.important,
-      rarity: (p) => Math.max(...p.items.map((i) => catalog.rarity(i.cat, i.id))),
-      dungeons: gamedata.places.flatMap((p, i) =>
-        isDungeon(p)
-          ? [{ id: `place:${i}`, subtype: PLACE_KINDS[p.icon]?.[0] ?? "donjon", pos: p, done: placeContents(p, db.entries, gamedata.positions, gamedata.items, tracker.completed).visited }]
-          : [],
-      ),
-    });
-    return zones
-      .filter((z) => z.map === me.map)
-      .map((z) => ({ z, d: Math.hypot(z.x - me.x, z.y - me.y) / z.radius }))
-      .sort((a, b) => a.d - b.d)[0]?.z ?? null;
-  });
+  const zone = $derived(zoneData.current);
 
   const session = $derived(sessions(journal.records).at(-1) ?? null);
   const climb = (m: number) => (Math.abs(m) < 15 ? "" : m > 0 ? ` · ↑${Math.round(m)} m` : ` · ↓${Math.round(-m)} m`);
@@ -123,7 +100,7 @@
 
       {#if zone}
         <div class="block">
-          <div class="label">{zoneName(zone, gamedata.regions[zone.region] ?? zone.region)}</div>
+          <div class="label">{zoneData.name(zone)}</div>
           <div class="left">
             {#if zone.left.boss}<span>{zone.left.boss} boss</span>{/if}
             {#if zone.left.grace}<span>{zone.left.grace} grâce{zone.left.grace > 1 ? "s" : ""}</span>{/if}

@@ -1,27 +1,18 @@
 <script lang="ts">
-  // "À explorer": zones with things left, without spoilers unless asked.
-  import { db, tracker } from "$lib/tracker.svelte";
+  // "Explorer": zones with things left, without spoilers unless asked.
+  import { db } from "$lib/tracker.svelte";
   import { gamedata } from "$lib/gamedata.svelte";
-  import { catalog } from "$lib/catalog.svelte";
-  import { categoryById, pickupCategory, pickupTitle } from "$lib/items";
-  import { locked } from "$lib/accessCheck.svelte";
-  import { buildZones, progress, zoneName, type Zone } from "$lib/zones";
+  import { pickupTitle } from "$lib/items";
+  import { progress, type Zone } from "$lib/zones";
+  import { zoneData } from "$lib/zoneData.svelte";
   import { formatDistance } from "$lib/route";
   import { ui } from "$lib/ui.svelte";
-  import { PLACE_KINDS, isDungeon, placeContents } from "$lib/places";
+  import { PLACE_KINDS } from "$lib/places";
 
   const MAPS: Record<string, string> = { M00: "Entre-terre", M01: "Souterrain", M10: "Royaume de l'Ombre", M11: "Souterrain (DLC)" };
 
   let filter = $state<"suggest" | "started" | "all">("suggest");
   let revealed = $state<Set<string>>(new Set());
-
-  const dungeons = $derived(
-    gamedata.places.flatMap((p, i) => {
-      if (!isDungeon(p)) return [];
-      const c = placeContents(p, db.entries, gamedata.positions, gamedata.items, tracker.completed);
-      return [{ id: `place:${i}`, subtype: PLACE_KINDS[p.icon]?.[0] ?? "donjon", pos: p, done: c.visited }];
-    }),
-  );
 
   /** "2 catacombes et 1 grotte" */
   const plural = (kind: string, n: number) => {
@@ -36,7 +27,7 @@
   // Per region: dungeons never visited, the easiest things to miss.
   const byRegion = $derived.by(() => {
     const regions = new Map<string, Record<string, number>>();
-    for (const z of zones) {
+    for (const z of zoneData.zones) {
       if (!z.left.dungeon) continue;
       const r = regions.get(z.region) ?? {};
       for (const [k, n] of Object.entries(z.dungeonsLeft)) r[k] = (r[k] ?? 0) + n;
@@ -45,47 +36,16 @@
     return [...regions].sort((a, b) => Object.values(b[1]).reduce((x, y) => x + y, 0) - Object.values(a[1]).reduce((x, y) => x + y, 0));
   });
 
-  const zones = $derived(
-    buildZones({
-      dungeons,
-      bosses: db.entries.filter((e) => e.category === "boss"),
-      graces: db.entries.filter((e) => e.category === "grace"),
-      items: [...gamedata.items],
-      positions: gamedata.positions,
-      completed: tracker.completed,
-      important: (p) => !!categoryById.get(pickupCategory(p))?.important,
-      rarity: (p) => Math.max(...p.items.map((i) => catalog.rarity(i.cat, i.id))),
-    }),
-  );
-
-  const me = $derived(tracker.snapshot?.map_position ?? null);
   const regionName = (en: string) => gamedata.regions[en] ?? en;
-  const lockedZone = (z: Zone) => {
-    const boss = db.entries.find((e) => e.category === "boss" && e.region === z.region);
-    return boss ? locked(boss) && !z.visited : false;
-  };
 
   const shown = $derived.by(() => {
-    const list = zones
-      .filter((z) => z.score > 0)
-      .map((z) => ({ z, distance: me && me.map === z.map ? Math.hypot(z.x - me.x, z.y - me.y) : null, locked: lockedZone(z) }));
-    if (filter === "started") return list.filter((r) => r.z.visited).sort((a, b) => b.z.score - a.z.score);
-    if (filter === "all") return list.sort((a, b) => b.z.score - a.z.score);
-    // Suggestions: zones you can reach, where you already set foot or that are close, with the most left.
-    return list
-      .filter((r) => !r.locked)
-      .sort((a, b) => rank(b) - rank(a))
-      .slice(0, 12);
+    if (filter === "started") return zoneData.ranked.filter((r) => r.z.visited).sort((a, b) => b.z.score - a.z.score);
+    if (filter === "all") return [...zoneData.ranked].sort((a, b) => b.z.score - a.z.score);
+    return zoneData.suggestions.slice(0, 12);
   });
 
-  function rank(r: { z: Zone; distance: number | null }) {
-    const near = r.distance === null ? 0.6 : Math.max(0.3, 1 - r.distance / 4000);
-    const started = r.z.visited ? 1.3 : 1;
-    return r.z.score * near * started;
-  }
-
   function show(z: Zone) {
-    ui.showPlace({ map: z.map, x: z.x, y: z.y, label: `${zoneName(z, regionName(z.region))}`, radius: z.radius });
+    ui.showPlace({ map: z.map, x: z.x, y: z.y, label: zoneData.name(z), radius: z.radius });
   }
 
   function toggle(key: string) {
@@ -107,7 +67,7 @@
   };
 </script>
 
-<h2>À explorer</h2>
+<h2>Explorer</h2>
 <p class="muted">
   Les zones où il te reste le plus à découvrir, sans rien dévoiler : seulement combien de boss, de grâces et d'objets
   notables restent à trouver.
@@ -136,7 +96,7 @@
 
 <div class="zones">
   {#each shown as { z, distance, locked: isLocked } (z.key)}
-    {@const name = zoneName(z, regionName(z.region))}
+    {@const name = zoneData.name(z)}
     <article class="zone" class:locked={isLocked}>
       <header>
         <div>
