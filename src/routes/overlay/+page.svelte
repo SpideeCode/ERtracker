@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Skull } from "@lucide/svelte";
+  import { ArrowUp, Castle, Flame, Gem, Lock, MapPin, Skull, Swords, Timer } from "@lucide/svelte";
   // In-game overlay HUD: a transparent always-on-top window over the game
   // (borderless windowed). Click-through until Ctrl+Shift+I.
   import { onMount } from "svelte";
@@ -11,7 +11,8 @@
   import { analyse, sessions } from "$lib/history";
   import { zoneData } from "$lib/zoneData.svelte";
   import { formatDistance, heading } from "$lib/route";
-  import { achievement } from "$lib/labels";
+  import { achievement, ago, playtime } from "$lib/labels";
+  import { locked } from "$lib/accessCheck.svelte";
   import { prefs } from "$lib/prefs.svelte";
   import { spoiler } from "$lib/spoiler.svelte";
 
@@ -77,11 +78,38 @@
   });
   const attempts = $derived(nextBoss ? (analysis.bosses.find((b) => b.id === nextBoss.id)?.attempts ?? 0) : 0);
 
+  const nextLocked = $derived.by(() => {
+    const b = nextBoss && bosses.find((e) => e.id === nextBoss.id);
+    return b ? locked(b) : false;
+  });
+  /** Map angle of the boss, 0 = north, clockwise. */
+  const angle = $derived.by(() => {
+    const p = nextBoss && gamedata.positions.get(nextBoss.id);
+    return p && me ? (Math.atan2(p.x - me.x, -(p.y - me.y)) * 180) / Math.PI : 0;
+  });
+
   // The zone the player stands in, and what is left there.
   const zone = $derived(zoneData.current);
+  const zoneDone = $derived.by(() => {
+    if (!zone) return 0;
+    const t = zone.total.boss + zone.total.grace + zone.total.item + zone.total.dungeon;
+    const l = zone.left.boss + zone.left.grace + zone.left.item + zone.left.dungeon;
+    return t ? Math.round(((t - l) / t) * 100) : 100;
+  });
 
   const session = $derived(sessions(journal.records).at(-1) ?? null);
-  const climb = (m: number) => (Math.abs(m) < 15 ? "" : m > 0 ? ` · ↑${Math.round(m)} m` : ` · ↓${Math.round(-m)} m`);
+  const sessionBosses = $derived(session?.gained.filter((id) => id.startsWith("boss:")).length ?? 0);
+  const sessionItems = $derived(session?.gained.filter((id) => id.startsWith("item:")).length ?? 0);
+  const climb = (m: number) =>
+    Math.abs(m) < 15 ? "" : m > 0 ? ` · ${Math.round(m)} m plus haut` : ` · ${Math.round(-m)} m plus bas`;
+  /** "1 grâce", "3 grâces"; words ending in s do not change. */
+  const plural = (n: number, word: string) => `${n} ${word}${n > 1 && !word.endsWith("s") ? "s" : ""}`;
+
+  let now = $state(Date.now());
+  $effect(() => {
+    const t = setInterval(() => (now = Date.now()), 5000);
+    return () => clearInterval(t);
+  });
 
   async function close() {
     await invoke("set_overlay_interactive", { on: false });
@@ -93,36 +121,63 @@
   <div class="hud {corner}" style="opacity: {opacity}; transform: scale({scale})">
     <div class="title">
       <span class="brand">ERtracker</span>
-      {#if tracker.character}<span class="muted">{tracker.character.name} · niv. {tracker.character.level}</span>{/if}
+      {#if tracker.character}<span class="muted">{tracker.character.name} · niveau {tracker.character.level}</span>{/if}
       {#if interactive}<button class="mini" onclick={() => (collapsed = !collapsed)}>{collapsed ? "▾" : "▴"}</button>{/if}
     </div>
+    {#if tracker.snapshot}
+      <div class="sync"><span class="pulse"></span> Sauvegarde lue {ago(tracker.snapshot.loaded_at, now)}</div>
+    {/if}
 
     {#if !collapsed}
-      {#if nextBoss}
-        <div class="block">
-          <div class="label">Boss le plus proche</div>
-          <div class="value">{nextBoss.name}</div>
-          <div class="muted">{formatDistance(nextBoss.d)} · {nextBoss.dir}{climb(nextBoss.climb)}{attempts ? ` · ${attempts} essai${attempts > 1 ? "s" : ""}` : ""}</div>
-        </div>
-      {/if}
-
       {#if zone}
         <div class="block">
-          <div class="label">{zoneData.name(zone)}</div>
-          <div class="left">
-            {#if zone.left.boss}<span>{zone.left.boss} boss</span>{/if}
-            {#if zone.left.grace}<span>{zone.left.grace} grâce{zone.left.grace > 1 ? "s" : ""}</span>{/if}
-            {#if zone.left.item}<span>{zone.left.item} objet{zone.left.item > 1 ? "s" : ""}</span>{/if}
-            {#if zone.left.dungeon}<span>{zone.left.dungeon} donjon{zone.left.dungeon > 1 ? "s" : ""}</span>{/if}
-            {#if !zone.score}<span class="done">Zone terminée ✓</span>{/if}
-          </div>
+          <div class="label"><MapPin size={12} /> Tu es ici</div>
+          <div class="value">{zoneData.name(zone)}</div>
+          {#if zone.score}
+            <div class="bar" title="{zoneDone} % de la zone fait"><div style="width: {zoneDone}%"></div></div>
+            <div class="left">
+              <span class="muted">Il reste ici :</span>
+              {#if zone.left.boss}<span><Swords size={12} /> {plural(zone.left.boss, "boss")}</span>{/if}
+              {#if zone.left.grace}<span><Flame size={12} /> {plural(zone.left.grace, "grâce")}</span>{/if}
+              {#if zone.left.item}<span><Gem size={12} /> {plural(zone.left.item, "objet")}</span>{/if}
+              {#if zone.left.dungeon}<span><Castle size={12} /> {plural(zone.left.dungeon, "donjon")}</span>{/if}
+            </div>
+          {:else}
+            <div class="done">Zone terminée : rien d'important à trouver ici ✓</div>
+          {/if}
         </div>
       {/if}
 
-      <div class="block row">
-        <span class="deaths"><Skull size={14} /> {tracker.character?.deaths.toLocaleString("fr-FR") ?? "—"}</span>
-        {#if session}<span class="muted">session : {session.deaths} mort{session.deaths > 1 ? "s" : ""}</span>{/if}
+      {#if nextBoss}
+        <div class="block">
+          <div class="label"><Swords size={12} /> Boss pas encore vaincu le plus proche</div>
+          <div class="boss">
+            <span class="arrow" style="transform: rotate({angle}deg)" title="Direction sur la carte (nord en haut)"><ArrowUp size={18} /></span>
+            <div>
+              <div class="value">{nextBoss.name}</div>
+              <div class="muted">{formatDistance(nextBoss.d)} vers le {nextBoss.dir}{climb(nextBoss.climb)}</div>
+            </div>
+          </div>
+          {#if nextLocked}<div class="warn"><Lock size={12} /> Accès à débloquer d'abord (voir sa fiche)</div>{/if}
+          {#if attempts}<div class="muted">Tu y es mort {plural(attempts, "fois")} jusqu'ici</div>{/if}
+        </div>
+      {/if}
+
+      <div class="block">
+        <div class="label"><Timer size={12} /> Cette session</div>
+        {#if session}
+          <div class="stats">
+            <span><strong>{session.played < 3600 ? `${Math.floor(session.played / 60)} min` : playtime(session.played)}</strong> de jeu</span>
+            <span><strong>{session.deaths}</strong> mort{session.deaths > 1 ? "s" : ""}</span>
+            <span><strong>{sessionBosses}</strong> boss</span>
+            <span><strong>{sessionItems}</strong> objet{sessionItems > 1 ? "s" : ""}</span>
+          </div>
+        {:else}
+          <div class="muted">Commence dès la prochaine sauvegarde du jeu.</div>
+        {/if}
+        <div class="muted total"><Skull size={12} /> {tracker.character?.deaths.toLocaleString("fr-FR") ?? "—"} morts depuis le début</div>
       </div>
+      {#if !interactive}<div class="hint">Ctrl+Maj+I pour régler · Ctrl+Maj+O pour masquer</div>{/if}
     {/if}
 
     {#if interactive}
@@ -169,8 +224,8 @@
   }
   .hud {
     position: absolute;
-    min-width: 260px;
-    max-width: 340px;
+    min-width: 300px;
+    max-width: 360px;
     background: rgba(14, 13, 11, 0.82);
     border: 1px solid rgba(201, 169, 91, 0.45);
     border-radius: 10px;
@@ -227,9 +282,84 @@
     font-size: 15px;
     font-weight: 600;
   }
+  .sync {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #a59c86;
+    margin: -2px 0 4px;
+  }
+  .pulse {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #6fbf73;
+    box-shadow: 0 0 6px #6fbf73;
+  }
+  .label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .bar {
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(201, 169, 91, 0.2);
+    margin: 5px 0 4px;
+    overflow: hidden;
+  }
+  .bar div {
+    height: 100%;
+    background: #c9a95b;
+  }
+  .left span {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .boss {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .arrow {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(201, 169, 91, 0.6);
+    border-radius: 50%;
+    color: #f3d27a;
+  }
+  .warn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #f0c27a;
+    font-size: 12px;
+    margin-top: 3px;
+  }
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+  .stats strong {
+    color: #f3d27a;
+  }
+  .total {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 3px;
+  }
   .left {
     display: flex;
-    gap: 10px;
+    gap: 2px 10px;
+    align-items: center;
     flex-wrap: wrap;
   }
   .done {
@@ -319,7 +449,7 @@
     border-left: 3px solid #c9a95b;
     padding: 10px 16px;
     border-radius: 6px;
-    min-width: 260px;
+    min-width: 300px;
     animation: slide 0.3s ease-out;
   }
   .kicker {
