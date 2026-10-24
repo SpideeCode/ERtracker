@@ -115,7 +115,7 @@ export interface BossSheet {
 /** One entry of markers.json, written by the extraction. */
 export interface MarkerPos extends MapPos {
   flag: number;
-  kind: "grace" | "boss" | "item";
+  kind: "grace" | "boss" | "item" | "place";
   /** Map block in the game's frame, e.g. "m30_04_00" (a catacomb) or "m60_42_36". */
   block: string;
 }

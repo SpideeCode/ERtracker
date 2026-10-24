@@ -133,12 +133,16 @@
       count++;
     }
     if (showDungeons) {
-      for (const p of gamedata.places) {
-        if (p.map !== current || !DUNGEON_ICONS.has(p.icon)) continue;
-        L.marker(toLatLng(p.x, p.y), { icon: L.divIcon({ className: "dungeon-icon", iconSize: [10, 10] }) })
+      gamedata.places.forEach((p, i) => {
+        if (p.map !== current || !DUNGEON_ICONS.has(p.icon)) return;
+        const id = `place:${i}`;
+        L.marker(toLatLng(p.x, p.y), {
+          icon: L.divIcon({ className: id === selected ? "dungeon-icon selected" : "dungeon-icon", iconSize: [12, 12] }),
+        })
           .bindTooltip(p.name.fr ?? p.name.en, { direction: "top", offset: [0, -4] })
+          .on("click", () => (ui.sheet = id))
           .addTo(markerLayer);
-      }
+      });
     }
     shown = count;
   });
@@ -389,6 +393,11 @@
     background: #9fb4c8;
     border: 1px solid #14110b;
     transform: rotate(45deg);
+    cursor: pointer;
+  }
+  :global(.dungeon-icon.selected) {
+    border: 2px solid #5ab0ff;
+    box-shadow: 0 0 8px #5ab0ff;
   }
   .foot {
     display: flex;

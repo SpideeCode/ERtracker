@@ -41,6 +41,8 @@ class GameData {
     this.places = places ?? [];
     const positions = new Map((markers ?? []).map((m) => [`${m.kind}:${m.flag}`, m]));
     for (const [id, p] of this.items) positions.set(id, { ...p, kind: "item" });
+    // Named places (dungeon entrances...) are routed to as open-world points: the entrance itself.
+    this.places.forEach((p, i) => positions.set(`place:${i}`, { ...p, flag: i, kind: "place", block: "m60_00_00" }));
     this.positions = positions;
     this.bosses = new Map((bosses ?? []).map((b) => [`boss:${b.flag}`, b]));
     this.names = translations?.names ?? {};
