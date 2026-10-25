@@ -1,0 +1,84 @@
+# Builds ERtracker and its launcher on every push to main and publishes them in
+# the rolling "latest" release, which the launcher downloads from.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the manifest lists recent commits and the launcher's last commit
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri
+            launcher
+
+      - run: npm ci
+
+      - run: npx tauri build --no-bundle
+
+      - run: cargo build --release
+        working-directory: launcher
+
+      - name: Manifest
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory dist | Out-Null
+          Copy-Item src-tauri/target/release/ertracker.exe, launcher/target/release/ertracker-launcher.exe dist/
+          function Asset($name) {
+            [ordered]@{
+              file   = $name
+              size   = (Get-Item "dist/$name").Length
+              sha256 = (Get-FileHash "dist/$name" -Algorithm SHA256).Hash.ToLower()
+            }
+          }
+          $launcher = Asset 'ertracker-launcher.exe'
+          $launcher.commit = [string](git log -1 --format=%H -- launcher)
+          $commits = git log -30 --date=format:'%d/%m/%Y %H:%M' --format='%H%x1f%s%x1f%cd' | ForEach-Object {
+            $p = $_ -split [char]0x1f
+            [ordered]@{ sha = $p[0]; subject = $p[1]; date = $p[2] }
+          }
+          [ordered]@{
+            commit   = '${{ github.sha }}'
+            app      = Asset 'ertracker.exe'
+            launcher = $launcher
+            commits  = @($commits)
+          } | ConvertTo-Json -Depth 5 | Set-Content dist/manifest.json -Encoding utf8
+          Get-Content dist/manifest.json -TotalCount 20
+
+      - name: Publish
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag -f latest
+          git push -f origin latest
+          gh release view latest *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create latest --title 'ERtracker' --notes 'Mise à jour automatique à chaque commit. Télécharger ertracker-launcher.exe et le lancer.' --latest
+          }
+          # The manifest goes last so a launcher never sees it before the exe it describes.
+          gh release upload latest dist/ertracker.exe dist/ertracker-launcher.exe --clobber
+          gh release upload latest dist/manifest.json --clobber
